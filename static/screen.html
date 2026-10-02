@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#020617">
+  <title>Build room · AI Minecraft Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 font-sans text-slate-100 antialiased">
+  <main class="mx-auto max-w-screen-2xl px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
+    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="text-lg font-bold tracking-widest text-emerald-400">AI MINECRAFT BUILDER</p>
+        <h1 class="mt-1 text-3xl font-bold sm:text-4xl">The build room</h1>
+      </div>
+      <span class="rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-lg font-semibold text-slate-300">Hackathon · Mock demo</span>
+    </header>
+
+    <section aria-labelledby="current-heading" class="rounded-3xl border border-emerald-400/30 bg-slate-900 p-7 sm:p-10">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <h2 id="current-heading" class="text-xl font-bold uppercase tracking-widest text-emerald-400">Currently building</h2>
+        <span class="flex items-center gap-3 text-xl font-semibold"><span class="h-3 w-3 rounded-full bg-emerald-400" aria-hidden="true"></span><span id="stage">Placing blocks</span></span>
+      </div>
+      <p id="build-name" class="mt-7 break-words text-5xl font-extrabold leading-tight tracking-tight sm:text-6xl lg:text-7xl">Sky island castle</p>
+      <p id="build-description" class="mt-4 max-w-4xl text-2xl leading-relaxed text-slate-300">A floating fortress with four towers, hanging gardens, and a waterfall.</p>
+      <div class="mt-9 flex items-end justify-between gap-4">
+        <p id="progress-detail" class="text-xl text-slate-300">Bringing the blueprint to life</p>
+        <p id="percent" class="text-5xl font-bold tabular-nums text-emerald-400">64%</p>
+      </div>
+      <div id="progress" role="progressbar" aria-label="Mock current build progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="64" class="mt-4 h-6 overflow-hidden rounded-full bg-slate-800">
+        <div id="progress-fill" class="h-full rounded-full bg-emerald-400 transition-all duration-700 motion-reduce:transition-none" style="width:64%"></div>
+      </div>
+    </section>
+
+    <section aria-label="Room counters" class="my-6 grid gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6"><p class="text-xl text-slate-300">Builds completed</p><p id="completed-count" class="mt-2 text-5xl font-bold tabular-nums sm:text-6xl">12</p></div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6"><p class="text-xl text-slate-300">Blocks placed</p><p id="blocks-count" class="mt-2 text-5xl font-bold tabular-nums sm:text-6xl">48,320</p></div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6"><p class="text-xl text-slate-300">Ideas in queue</p><p id="queue-count" class="mt-2 text-5xl font-bold tabular-nums sm:text-6xl">3</p></div>
+    </section>
+
+    <section aria-labelledby="recent-heading" class="rounded-2xl border border-slate-800 bg-slate-900 px-7 py-6">
+      <h2 id="recent-heading" class="text-2xl font-bold">Recently completed</h2>
+      <ul id="recent-builds" class="mt-3 divide-y divide-slate-800"></ul>
+    </section>
+    <footer class="mt-5 text-lg text-slate-400">Demo data · Progress updates automatically · One idea. Thousands of blocks.</footer>
+  </main>
+  <script>
+    // Standalone mock simulation. No server or API connection is required.
+    const upcoming = [
+      { name: 'Sky island castle', description: 'A floating fortress with four towers, hanging gardens, and a waterfall.', blocks: 6400 },
+      { name: 'Mountain dragon', description: 'An emerald dragon curled around a snowy mountain peak.', blocks: 5100 },
+      { name: 'Coastal lighthouse', description: 'A striped lighthouse overlooking the ocean, with a tiny harbor below.', blocks: 3200 },
+      { name: 'Golden Gate Bridge', description: 'Two red towers and a sweeping suspension bridge across the bay.', blocks: 7800 }
+    ];
+    const state = {
+      index: 0, progress: 64, completed: 12, blocks: 48320,
+      recent: [
+        { name: 'Cherry blossom village', blocks: 4250 },
+        { name: 'Underwater glass dome', blocks: 3680 },
+        { name: 'Space station', blocks: 5920 }
+      ]
+    };
+    const number = new Intl.NumberFormat('en-US');
+    const element = id => document.getElementById(id);
+    function render() {
+      const build = upcoming[state.index];
+      element('build-name').textContent = build.name;
+      element('build-description').textContent = build.description;
+      element('percent').textContent = state.progress + '%';
+      element('progress').setAttribute('aria-valuenow', state.progress);
+      element('progress-fill').style.width = state.progress + '%';
+      element('stage').textContent = state.progress === 100 ? 'Build complete' : state.progress < 20 ? 'Planning blueprint' : state.progress < 85 ? 'Placing blocks' : 'Finishing details';
+      element('progress-detail').textContent = state.progress === 100 ? 'Another idea brought to life' : state.progress < 20 ? 'Choosing shapes and a block palette' : state.progress < 85 ? 'Bringing the blueprint to life' : 'Adding the final touches';
+      element('completed-count').textContent = number.format(state.completed);
+      element('blocks-count').textContent = number.format(state.blocks);
+      element('queue-count').textContent = upcoming.length - state.index - 1;
+      element('recent-builds').replaceChildren(...state.recent.map(item => {
+        const row = document.createElement('li');
+        row.className = 'flex flex-wrap items-center justify-between gap-2 py-4';
+        const name = document.createElement('span');
+        name.className = 'text-2xl font-semibold';
+        name.textContent = item.name;
+        const detail = document.createElement('span');
+        detail.className = 'text-xl text-emerald-300';
+        detail.textContent = number.format(item.blocks) + ' blocks · Completed';
+        row.append(name, detail);
+        return row;
+      }));
+    }
+    render();
+    setInterval(() => {
+      if (state.progress === 100) {
+        // Start another demo cycle when the mock queue has been exhausted.
+        state.index = (state.index + 1) % upcoming.length;
+        state.progress = 0;
+      } else {
+        const previous = state.progress;
+        state.progress = Math.min(100, previous + 2);
+        state.blocks += Math.floor(upcoming[state.index].blocks * state.progress / 100) - Math.floor(upcoming[state.index].blocks * previous / 100);
+        if (state.progress === 100) {
+          state.completed++;
+          state.recent.unshift({ name: upcoming[state.index].name, blocks: upcoming[state.index].blocks });
+          state.recent = state.recent.slice(0, 3);
+        }
+      }
+      render();
+    }, 2500);
+  </script>
+</body>
+</html>

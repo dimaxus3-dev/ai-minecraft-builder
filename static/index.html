@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>AI Minecraft Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+  <main class="mx-auto max-w-lg px-5 py-10 sm:py-16">
+    <header class="mb-8">
+      <div class="mb-6 flex items-center justify-between">
+        <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400 text-2xl text-slate-950" aria-hidden="true">▦</span>
+        <span class="rounded-full border border-slate-700 px-3 py-1 text-xs font-medium text-slate-400">Demo</span>
+      </div>
+      <p class="mb-2 text-sm font-semibold text-emerald-400">AI MINECRAFT BUILDER</p>
+      <h1 class="text-4xl font-bold leading-tight tracking-tight">Imagine it.<br>Build it in blocks.</h1>
+      <p class="mt-4 text-base leading-relaxed text-slate-400">Describe your next Minecraft creation. We’ll take it from idea to build.</p>
+    </header>
+
+    <form id="build-form" class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <label for="prompt" class="mb-3 block text-sm font-semibold">What do you want to build?</label>
+      <textarea id="prompt" name="prompt" rows="4" maxlength="500" required placeholder="A castle on a mountain, with tall towers and a secret entrance…" class="block w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"></textarea>
+      <p id="prompt-error" role="alert" class="mt-3 hidden text-sm text-red-400"></p>
+      <p class="mb-3 mt-5 text-xs font-medium text-slate-400">NEED AN IDEA? TRY ONE</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" data-suggestion="Castle" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Castle</button>
+        <button type="button" data-suggestion="Dragon" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Dragon</button>
+        <button type="button" data-suggestion="Lighthouse" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Lighthouse</button>
+        <button type="button" data-suggestion="Golden Gate Bridge" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Golden Gate Bridge</button>
+      </div>
+      <button id="submit-button" type="submit" class="mt-6 min-h-14 w-full rounded-xl bg-emerald-400 px-4 py-4 text-base font-bold text-slate-950 transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400 disabled:cursor-wait disabled:opacity-60">Build my idea <span aria-hidden="true">→</span></button>
+      <p class="mt-3 text-center text-xs leading-relaxed text-slate-500">Preview mode · No Minecraft server connected</p>
+    </form>
+
+    <section aria-labelledby="status-heading" class="mt-5 rounded-2xl border border-slate-800 p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 id="status-heading" class="text-sm font-semibold">Your build status</h2>
+        <span id="status-badge" class="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">Ready</span>
+      </div>
+      <div role="status" aria-live="polite" aria-atomic="true">
+        <p id="status-title" class="font-medium">Your next big idea starts here.</p>
+        <p id="status-detail" class="mt-2 break-words text-sm leading-relaxed text-slate-400">Enter a description or tap a suggestion to get started.</p>
+      </div>
+      <div id="progress" role="progressbar" aria-label="Simulated build progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
+        <div id="progress-fill" class="h-full w-0 rounded-full bg-emerald-400 transition-all duration-500 motion-reduce:transition-none"></div>
+      </div>
+      <p class="mt-3 text-xs text-slate-500">All progress shown here is simulated.</p>
+    </section>
+    <footer class="mt-8 text-center text-xs text-slate-500">Big imagination. One block at a time.</footer>
+  </main>
+
+  <script>
+    const form = document.getElementById('build-form');
+    const promptInput = document.getElementById('prompt');
+    const submitButton = document.getElementById('submit-button');
+    const badge = document.getElementById('status-badge');
+    const title = document.getElementById('status-title');
+    const detail = document.getElementById('status-detail');
+    const progress = document.getElementById('progress');
+    const fill = document.getElementById('progress-fill');
+    const suggestions = document.querySelectorAll('[data-suggestion]');
+    let building = false;
+
+    // BUILD_REQUEST_VALIDATION START
+    // Temporary English keyword check, not AI. Extend the list here
+    // or replace this function with real validation when the backend is ready.
+    const promptError = document.getElementById('prompt-error');
+    promptInput.setAttribute('aria-describedby', 'prompt-error');
+    function isBuildRequest(value) {
+      const words = value.toLowerCase().match(/[\p{L}]+/gu) || [];
+      const englishObjects = new Set([
+        'castle', 'dragon', 'lighthouse', 'bridge', 'house', 'home', 'tower',
+        'palace', 'fort', 'fortress', 'village', 'city', 'town', 'farm', 'garden',
+        'statue', 'sculpture', 'pixel', 'ship', 'boat', 'spaceship', 'rocket',
+        'car', 'train', 'station', 'temple', 'church', 'cathedral', 'pyramid',
+        'arena', 'stadium', 'maze', 'dungeon', 'tree', 'treehouse', 'mountain',
+        'island', 'waterfall', 'fountain', 'pool', 'park', 'road', 'railway',
+        'wall', 'gate', 'portal', 'robot', 'cat', 'dog', 'library', 'school',
+        'hospital', 'shop', 'hotel', 'restaurant', 'base', 'bunker', 'mansion'
+      ]);
+      const unrelatedRequest = /\b(hello|hi|thanks|weather|joke|translate|calculate|explain|recipe)\b/i;
+      if (unrelatedRequest.test(value) || value.includes('?')) return false;
+      return words.some(word => englishObjects.has(word) ||
+        (word.endsWith('s') && englishObjects.has(word.slice(0, -1))));
+    }
+
+    function clearPromptError() {
+      promptInput.setCustomValidity('');
+      promptInput.removeAttribute('aria-invalid');
+      promptError.textContent = '';
+      promptError.classList.add('hidden');
+    }
+    // BUILD_REQUEST_VALIDATION END
+
+    suggestions.forEach(button => {
+      button.addEventListener('click', () => {
+        promptInput.value = button.dataset.suggestion;
+        clearPromptError();
+        promptInput.focus();
+      });
+    });
+
+    promptInput.addEventListener('input', clearPromptError);
+
+    function updateStatus(label, heading, message, percent) {
+      badge.textContent = label;
+      title.textContent = heading;
+      detail.textContent = message;
+      progress.setAttribute('aria-valuenow', String(percent));
+      fill.style.width = percent + '%';
+    }
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (building) return;
+      const idea = promptInput.value.trim();
+      if (!idea) {
+        promptInput.setCustomValidity('Describe what you want to build first.');
+        promptInput.reportValidity();
+        return;
+      }
+
+      // BUILD_REQUEST_VALIDATION: reject before starting any mock build timers.
+      if (!isBuildRequest(idea)) {
+        promptError.textContent = 'Please enter a build description, such as a castle, bridge, or house.';
+        promptError.classList.remove('hidden');
+        promptInput.setAttribute('aria-invalid', 'true');
+        updateStatus('Needs a build', 'Please describe a build', 'For example: “A castle with tall towers” or “A house with a garden”.', 0);
+        promptInput.focus();
+        return;
+      }
+      clearPromptError();
+
+      building = true;
+      submitButton.disabled = true;
+      submitButton.textContent = 'Building your idea…';
+      promptInput.disabled = true;
+      suggestions.forEach(button => { button.disabled = true; });
+      const stages = [
+        ['Queued', 'Your idea is in the queue.', 'Requested build: ' + idea, 10, 1200],
+        ['Planning', 'Sketching the blueprint…', 'Choosing the shape, scale, and block palette for your idea.', 35, 1800],
+        ['Building', 'Placing the blocks…', 'Your mock build is taking shape, one block at a time.', 70, 2000],
+        ['Finishing', 'Adding the final details…', 'Simulating lighting, textures, and finishing touches.', 90, 1200]
+      ];
+      for (const [label, heading, message, percent, delay] of stages) {
+        updateStatus(label, heading, message, percent);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      updateStatus('Complete', 'Your demo build is complete!', 'Simulated result for “' + idea + '”. Try another idea to run the demo again.', 100);
+      building = false;
+      promptInput.disabled = false;
+      suggestions.forEach(button => { button.disabled = false; });
+      submitButton.disabled = false;
+      submitButton.textContent = 'Build another idea →';
+    });
+  </script>
+</body>
+</html>
