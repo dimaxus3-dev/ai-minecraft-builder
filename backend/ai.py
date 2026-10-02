@@ -33,6 +33,17 @@ from builder.blocks import palette_for_prompt
 from builder.schema import BuildProgram, schema_for_prompt
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+# Провайдеры. Имя модели вида «google/gemini-3.8-flash» выбирает провайдера по
+# первому слову; всё остальное идёт на основной endpoint (NVIDIA). У Google есть
+# слой, совместимый с OpenAI, поэтому запрос везде один и тот же.
+# (адрес, имена переменных с ключом, как передавать ключ)
+GOOGLE = ("https://generativelanguage.googleapis.com/v1beta/openai",
+          ("GEMINI_API_KEY", "GOOGLE_API_KEY"), "bearer")
+PROVIDERS: dict[str, tuple[str, tuple[str, ...], str]] = {
+    "google": GOOGLE,
+    "gemini": GOOGLE,
+}
 DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 # через запятую: пробуем по порядку, пока одна не ответит
 DEFAULT_FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b,openai/gpt-oss-20b"
@@ -231,15 +242,38 @@ def extract_json(text: str) -> dict[str, Any]:
 
 # --- вызов модели --------------------------------------------------------
 
-def _chat(messages: list[dict], model: str, base_url: str, api_key: str,
+def endpoint_for(model: str) -> tuple[str, str | None, str, dict]:
+    """Адрес, ключ, имя модели у провайдера и заголовки запроса.
+
+    «google/gemini-3.8-flash» -> Gemini с ключом GEMINI_API_KEY и именем
+    «gemini-3.8-flash»; всё прочее — основной endpoint (NVIDIA). Слой Google,
+    совместимый с OpenAI, принимает ключ как «Bearer»; нативный путь того же
+    сервиса ждёт заголовок x-goog-api-key — отсюда третье поле в таблице.
+    Ключа нет — возвращаем None, и такую модель в гонку не берём."""
+    head, _, rest = model.partition("/")
+    provider = PROVIDERS.get(head.lower())
+    if provider and rest:
+        base, env_names, header = provider
+        key = next((os.getenv(n) for n in env_names if os.getenv(n)), None)
+        headers = {header: key} if header != "bearer" else {"Authorization": f"Bearer {key}"}
+        return base.rstrip("/"), key, rest, headers
+    key = os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY")
+    return (os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/"), key, model,
+            {"Authorization": f"Bearer {key}"})
+
+
+def _chat(messages: list[dict], model: str,
           timeout: float, temperature: float,
           max_tokens: int = DEFAULT_MAX_TOKENS) -> str:
-    """Один запрос к OpenAI-совместимому endpoint."""
+    """Один запрос к OpenAI-совместимому endpoint любого провайдера."""
+    base_url, api_key, send_name, headers = endpoint_for(model)
+    if not api_key:
+        raise AuthError(f"{model}: нет ключа для провайдера")
     response = requests.post(
         f"{base_url}/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}"},
+        headers=headers,
         json={
-            "model": model,
+            "model": send_name,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -262,9 +296,8 @@ def _chat(messages: list[dict], model: str, base_url: str, api_key: str,
     return content
 
 
-def _generate_with(model: str, text: str, limit: int, base_url: str,
-                   api_key: str, timeout: float, retries: int,
-                   temperature: float, max_tokens: int,
+def _generate_with(model: str, text: str, limit: int, timeout: float,
+                   retries: int, temperature: float, max_tokens: int,
                    reference: str | None = None) -> BuildProgram:
     """Одна модель: попытка + разбор + повтор с текстом ошибки."""
     messages = [
@@ -275,8 +308,7 @@ def _generate_with(model: str, text: str, limit: int, base_url: str,
     keep: BuildProgram | None = None      # годный, но однотонный — на крайний случай
     for attempt in range(retries + 1):
         try:
-            content = _chat(messages, model, base_url, api_key, timeout,
-                            temperature, max_tokens)
+            content = _chat(messages, model, timeout, temperature, max_tokens)
         except Exception:
             if keep is not None:
                 return keep               # исправление не пришло — берём то, что есть
@@ -334,10 +366,6 @@ def generate(
     Справка и карта запрашиваются одновременно, модель — только если карта
     не успела за свою фору. В зале лучше построить что-то похуже, чем ничего.
     """
-    api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY")
-    if not api_key:
-        raise LLMError("нет ключа: заполни NVIDIA_API_KEY в .env")
-    base_url = os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
     timeout = float(os.getenv("LLM_TIMEOUT", DEFAULT_TIMEOUT))
     max_tokens = int(os.getenv("LLM_MAX_TOKENS", DEFAULT_MAX_TOKENS))
     limit = size_limit or size_limit_for(text)
@@ -347,6 +375,14 @@ def generate(
         os.getenv("LLM_MODEL", DEFAULT_MODEL),
         *[m.strip() for m in fallbacks.split(",") if m.strip()],
     ]
+    # Модель без ключа в гонку не берём: пусть её отсутствие ничего не задерживает
+    ready = [m for m in chain if endpoint_for(m)[1]]
+    if not ready:
+        raise LLMError("нет ключа ни для одной модели: заполни NVIDIA_API_KEY "
+                       "или GEMINI_API_KEY в .env")
+    if len(ready) != len(chain):
+        log.info("без ключа пропускаю: %s", ", ".join(m for m in chain if m not in ready))
+    chain = ready
 
     known = blueprints.match(text)
     if known and not model:
@@ -367,8 +403,8 @@ def generate(
         log.info("«%s»: справка найдена (%d символов)", text[:40], len(reference))
 
     def model_call(name: str) -> BuildProgram:
-        return _generate_with(name, text, limit, base_url, api_key, timeout,
-                              retries, temperature, max_tokens, reference)
+        return _generate_with(name, text, limit, timeout, retries,
+                              temperature, max_tokens, reference)
 
     # Карте даём фору: пока Википедия отвечала, карта обычно уже готова, и модель
     # тогда не зовём вовсе — ни токенов, ни ожидания.
