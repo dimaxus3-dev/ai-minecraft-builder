@@ -118,3 +118,26 @@ class DragonTests(unittest.TestCase):
         self.assertGreater(len(live), 8000)
         height = max(p[1] for p in live) - min(p[1] for p in live) + 1
         self.assertGreater(height, 35, "дракон должен быть заметным")
+
+
+class BlockTypeTests(unittest.TestCase):
+    def test_во_всех_чертежах_блоки_это_строки(self):
+        # у Canvas.arch блок идёт перед толщиной; перепутав их, мы клали в мир
+        # число вместо имени блока, и стройка падала уже в игре
+        for entry in blueprints.REGISTRY.values():
+            with self.subTest(id=entry.id):
+                wrong = {b for b in blueprints.build(entry.id).values() if not isinstance(b, str)}
+                self.assertFalse(wrong, f"{entry.id}: не блоки, а {wrong}")
+
+
+class SpellingTests(unittest.TestCase):
+    """Английские названия, записанные кириллицей: в зале набирают и так."""
+
+    def test_кириллические_написания(self):
+        for text, expected in (("драгон", "dragon"), ("лайтхаус", "lighthouse"),
+                               ("клок товер", "clock_tower"), ("голден гейт", "golden_gate_bridge"),
+                               ("кастл", "castle"), ("рокет", "rocket"), ("шип", "ship"),
+                               ("тауэр", "skyscraper"), ("эмпайр", "empire_state_building"),
+                               ("сейлсфорс", "salesforce_tower")):
+            with self.subTest(text=text):
+                self.assertEqual(blueprints.match(text), expected)

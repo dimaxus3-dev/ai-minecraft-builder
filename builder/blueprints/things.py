@@ -670,10 +670,10 @@ def bridge(main: str = "stone_bricks", accent: str = "polished_andesite",
         c.box((cx - W, 1, z - 2), (cx + W, deck - 1, z + 2), main)
         if k < n:
             h = round(span * 0.45)
-            c.arch((cx - W, deck - 1 - h, z + 3), (cx - W, deck - 1, z + span - 3), h, 2)
-            c.arch((cx + W, deck - 1 - h, z + 3), (cx + W, deck - 1, z + span - 3), h, 2)
+            c.arch((cx - W, deck - 1 - h, z + 3), (cx - W, deck - 1, z + span - 3), h, main, 2)
+            c.arch((cx + W, deck - 1 - h, z + 3), (cx + W, deck - 1, z + span - 3), h, main, 2)
             for x in range(-W + 1, W):                                       # свод
-                c.arch((cx + x, deck - 1 - h, z + 3), (cx + x, deck - 1, z + span - 3), h, 1)
+                c.arch((cx + x, deck - 1 - h, z + 3), (cx + x, deck - 1, z + span - 3), h, accent)
 
     c.box((cx - W, deck, 0), (cx + W, deck, L), accent)                      # настил
     c.box((cx - W + 1, deck + 1, 0), (cx + W - 1, deck + 1, L), "gravel")
@@ -717,7 +717,7 @@ def mosque(main: str = "white_concrete", accent: str = "cyan_concrete",
 
     portal = max(8, round(12 * scale))                                       # портал
     c.box((cx - portal, 1, cz - S - 2), (cx + portal, wall + 4, cz - S - 1), main)
-    c.arch((cx - portal + 3, 1, cz - S - 2), (cx + portal - 3, portal, cz - S - 1), portal, 2)
+    c.arch((cx - portal + 3, 1, cz - S - 2), (cx + portal - 3, portal, cz - S - 1), portal, accent, 2)
     c.carve((cx - portal + 4, 1, cz - S - 2), (cx + portal - 4, portal - 2, cz - S - 1))
     for y in range(4, wall, 4):                                              # окна
         for x in range(-S + 4, S - 3, 6):
@@ -765,10 +765,10 @@ def triumphal_arch(main: str = "smooth_sandstone", accent: str = "gold_block",
     hole = round(W * 0.42)                                                   # главный проём
     c.carve((cx - hole, 1, cz - D), (cx + hole, round(H * 0.45), cz + D))
     for x in range(-hole, hole + 1):
-        c.arch((cx + x, round(H * 0.45), cz - D), (cx + x, round(H * 0.45), cz + D), hole, 1)
+        c.arch((cx + x, round(H * 0.45), cz - D), (cx + x, round(H * 0.45), cz + D), hole, main)
     c.put([(cx + x, y, z) for x, y, z in []], main)
     for z in range(cz - D, cz + D + 1):                                      # свод проёма
-        c.arch((cx - hole, round(H * 0.45) - hole, z), (cx + hole, round(H * 0.45), z), hole, 1)
+        c.arch((cx - hole, round(H * 0.45) - hole, z), (cx + hole, round(H * 0.45), z), hole, main)
     c.carve((cx - hole + 1, 1, cz - D), (cx + hole - 1, round(H * 0.45) - 1, cz + D))
 
     for side in (1, -1):                                                     # боковые проёмы
@@ -807,7 +807,15 @@ def clock_tower(main: str = "smooth_sandstone", accent: str = "gold_block",
             c.box((cx + x, y, cz - S + 2), (cx + x, y + 4, cz - S + 2), accent)
             c.box((cx + x, y, cz + S - 2), (cx + x, y + 4, cz + S - 2), accent)
     c.carve((cx - 2, 2, cz - S), (cx + 2, 7, cz - S))                         # вход
-    c.arch((cx - 2, 2, cz - S), (cx + 2, 7, cz - S), 3, 1)
+    c.arch((cx - 2, 2, cz - S), (cx + 2, 7, cz - S), 3, accent)
+    # стрельчатые окна по ярусам: голый ствол выглядел пустым
+    for y in range(12, round(H * 0.68), 11):
+        for ddx, ddz in ((0, -S), (0, S), (-S, 0), (S, 0)):
+            wx, wz = cx + ddx, cz + ddz
+            c.box((wx - (1 if ddz else 0), y, wz - (1 if ddx else 0)),
+                  (wx + (1 if ddz else 0), y + 4, wz + (1 if ddx else 0)), "light_blue_stained_glass")
+            c.box((wx - (1 if ddz else 0), y + 5, wz - (1 if ddx else 0)),
+                  (wx + (1 if ddz else 0), y + 5, wz + (1 if ddx else 0)), accent)
 
     face = round(H * 0.74)                                                    # ярус с часами
     c.box((cx - S - 2, face - 2, cz - S - 2), (cx + S + 2, face - 1, cz + S + 2), accent)
@@ -815,7 +823,12 @@ def clock_tower(main: str = "smooth_sandstone", accent: str = "gold_block",
     r = S - 1
     for dx, dz, nx, nz in ((0, -S - 1, 1, 0), (0, S + 1, 1, 0), (-S - 1, 0, 0, 1), (S + 1, 0, 0, 1)):
         fy = face + S
-        for a in range(0, 360, 4):                                            # круг циферблата
+        # белое поле циферблата: на песчанике стрелки терялись, часы читаются издалека
+        for u in range(-r, r + 1):
+            for v in range(-r, r + 1):
+                if u * u + v * v <= (r - 1) ** 2:
+                    c.set(cx + dx + nx * u, fy + v, cz + dz + nz * u, "white_concrete")
+        for a in range(0, 360, 4):                                            # ободок
             t = math.radians(a)
             c.set(cx + dx + nx * r * math.cos(t), fy + r * math.sin(t), cz + dz + nz * r * math.cos(t), accent)
         for a in range(0, 360, 30):                                           # деления
