@@ -91,3 +91,30 @@ class SoftMatchTests(unittest.TestCase):
         self.assertEqual(params.parse("viking mansion")["main"], "spruce_planks")
         self.assertEqual(params.parse("ледяной замок")["main"], "packed_ice")
         self.assertEqual(params.parse("supercar")["main"], "red_concrete")
+
+
+class OwnNameTests(unittest.TestCase):
+    """Слово из собственного имени здания не должно работать как цвет."""
+
+    def test_golden_gate_остаётся_оранжевым(self):
+        self.assertEqual(blueprints.params_for("golden_gate_bridge", "Golden Gate Bridge"), {})
+        self.assertEqual(blueprints.params_for("golden_gate_bridge", "золотые ворота"), {})
+
+    def test_голубая_мечеть_не_перекрашивается(self):
+        self.assertEqual(blueprints.params_for("blue_mosque", "Blue Mosque"), {})
+
+    def test_чужой_цвет_по_прежнему_работает(self):
+        self.assertEqual(blueprints.params_for("eiffel_tower", "золотая эйфелева башня")["main"],
+                         "gold_block")
+        self.assertEqual(blueprints.params_for("castle", "ice castle")["main"], "snow_block")
+
+
+class DragonTests(unittest.TestCase):
+    def test_дракон_есть_и_немаленький(self):
+        self.assertEqual(blueprints.match("dragon"), "dragon")
+        self.assertEqual(blueprints.match("дракон"), "dragon")
+        voxels = blueprints.build("dragon")
+        live = [p for p, b in voxels.items() if b != "air"]
+        self.assertGreater(len(live), 8000)
+        height = max(p[1] for p in live) - min(p[1] for p in live) + 1
+        self.assertGreater(height, 35, "дракон должен быть заметным")

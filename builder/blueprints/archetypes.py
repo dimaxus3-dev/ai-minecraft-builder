@@ -214,27 +214,91 @@ def windmill() -> dict:
 
 
 def lighthouse() -> dict:
-    c = Canvas(); C = 16
-    for x in range(0, 2 * C + 1):
-        for z in range(0, 2 * C + 1):
+    """Маяк на скале в море: полосатая башня, галерея с перилами, стеклянный фонарь
+    с лучом, домик смотрителя, пирс и прибой у камней."""
+    c = Canvas(); C = 22
+    SEA = 2                                   # уровень воды
+
+    # море вокруг острова
+    for x in range(2 * C + 1):
+        for z in range(2 * C + 1):
+            for y in range(SEA + 1):
+                c.set(x, y, z, "water")
+
+    # скала: неровная, с пеной у кромки
+    for x in range(2 * C + 1):
+        for z in range(2 * C + 1):
             d = math.hypot(x - C, z - C)
-            if d <= 13:
-                h = max(0, round(4 - d / 4 + ((x * 7 + z * 3) % 3)))
+            edge = 14 + 1.6 * math.sin(x * 0.8) + 1.6 * math.cos(z * 0.7)
+            if d <= edge:
+                h = max(0, round(6 - d / 3 + ((x * 7 + z * 3) % 3)))
                 for y in range(0, h + 1):
                     c.set(x, y, z, "stone" if y < h else "andesite")
-    base = 5
-    for y in range(base, base + 30):
-        r = round(6 - 2 * ((y - base) / 30))
-        c.cyl((C, y, C), r, 1, "red_concrete" if ((y - base) // 4) % 2 == 0 else "white_concrete", hollow=True)
-    top = base + 30
-    c.cyl((C, top, C), 6, 1, "iron_block")
-    c.cyl((C, top + 1, C), 6, 1, "iron_block", hollow=True)
-    c.cyl((C, top + 1, C), 3, 4, "glass", hollow=True)
-    c.sphere((C, top + 3, C), 1, "glowstone")
-    c.cone((C, top + 5, C), 4, 6, "red_concrete")
-    c.line((C, top + 11, C), (C, top + 14, C), "iron_block", 1)
-    c.carve((C - 1, base, C - 6), (C + 1, base + 3, C - 4))
-    c.box((C, base, C - 5), (C, base + 2, C - 5), "dark_oak_planks")
-    for y in (base + 9, base + 17, base + 24):
-        c.carve((C + 4, y, C - 1), (C + 4, y + 1, C + 1))
+                if d > edge - 0.9 and h <= SEA and (x + z) % 2:   # прибой у кромки
+                    c.set(x, h + 1, z, "snow_block")
+            elif d <= edge + 1.0 and (x * 3 + z) % 3:
+                c.set(x, SEA + 1, z, "snow_block")
+
+    base = 7
+    c.cyl((C, base - 1, C), 8, 1, "stone_bricks")          # стилобат
+    for y in range(base, base + 34):                       # ствол с полосами
+        r = round(6 - 2 * ((y - base) / 34))
+        c.cyl((C, y, C), r, 1, "red_concrete" if ((y - base) // 5) % 2 == 0 else "white_concrete",
+              hollow=True)
+    top = base + 34
+
+    # галерея с перилами
+    c.cyl((C, top, C), 7, 1, "iron_block")
+    for a in range(0, 360, 12):
+        t = math.radians(a)
+        c.set(C + 7 * math.cos(t), top + 1, C + 7 * math.sin(t), "iron_bars")
+        c.set(C + 7 * math.cos(t), top + 2, C + 7 * math.sin(t), "iron_bars")
+    c.cyl((C, top + 3, C), 7, 1, "iron_block")
+
+    # фонарь: стеклянный барабан с лампой и лучами
+    c.cyl((C, top + 1, C), 4, 1, "polished_andesite")
+    for y in range(top + 2, top + 7):
+        c.cyl((C, y, C), 4, 1, "glass", hollow=True)
+        for a in range(0, 360, 45):                        # переплёты рамы
+            t = math.radians(a)
+            c.set(C + 4 * math.cos(t), y, C + 4 * math.sin(t), "iron_block")
+    c.sphere((C, top + 4, C), 2, "glowstone")
+    c.cyl((C, top + 7, C), 5, 1, "iron_block")
+    c.cone((C, top + 8, C), 5, 7, "red_concrete")
+    c.line((C, top + 15, C), (C, top + 19, C), "iron_bars", 1)
+    c.set(C, top + 20, C, "glowstone")                     # огонь на шпиле
+    for a in (0, 90, 180, 270):                            # флюгер
+        t = math.radians(a)
+        c.set(C + 2 * math.cos(t), top + 18, C + 2 * math.sin(t), "iron_block")
+
+    # вход и окна по спирали
+    c.carve((C - 1, base, C - 7), (C + 1, base + 3, C - 5))
+    c.box((C - 1, base, C - 6), (C + 1, base + 2, C - 6), "dark_oak_planks")
+    c.box((C - 2, base + 4, C - 7), (C + 2, base + 4, C - 5), "stone_bricks")
+    for k, y in enumerate(range(base + 7, top - 3, 6)):
+        a = math.radians(k * 72)
+        r = 6 - 2 * ((y - base) / 34)
+        c.set(C + r * math.cos(a), y, C + r * math.sin(a), "glass")
+        c.set(C + r * math.cos(a), y + 1, C + r * math.sin(a), "glass")
+
+    # домик смотрителя
+    hx, hz = C + 11, C + 4
+    c.box((hx - 4, 6, hz - 4), (hx + 4, 6, hz + 4), "stone_bricks")
+    c.hollow((hx - 4, 7, hz - 4), (hx + 4, 11, hz + 4), "white_concrete", 1)
+    c.roof((hx - 5, 12, hz - 5), (hx + 5, 12, hz + 5), "red_concrete", style="gable")
+    c.carve((hx - 1, 7, hz - 4), (hx + 1, 9, hz - 4))
+    c.box((hx - 1, 7, hz - 4), (hx + 1, 9, hz - 4), "dark_oak_planks")
+    for dz in (-2, 2):
+        c.box((hx - 4, 9, hz + dz), (hx - 4, 10, hz + dz), "glass")
+        c.box((hx + 4, 9, hz + dz), (hx + 4, 10, hz + dz), "glass")
+    c.box((hx + 2, 13, hz + 2), (hx + 3, 15, hz + 3), "bricks")      # труба
+
+    # дорожка от домика к башне и пирс в море
+    for k in range(10):
+        c.set(C + 2 + k, 6, C + 3, "gravel")
+    for z in range(C + 13, 2 * C):
+        c.box((C - 1, SEA + 1, z), (C + 1, SEA + 1, z), "oak_planks")
+        if z % 3 == 0:
+            c.line((C - 1, 0, z), (C - 1, SEA, z), "oak_log", 1)
+            c.line((C + 1, 0, z), (C + 1, SEA, z), "oak_log", 1)
     return c.v

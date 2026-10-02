@@ -190,7 +190,7 @@ async def run_job(row: dict) -> None:
             payload = await asyncio.wait_for(get_program(row),
                                              timeout=GENERATE_TIMEOUT)
         except asyncio.TimeoutError:
-            reason = f"LLM не ответил за {GENERATE_TIMEOUT:.0f} с"
+            reason = f"The model did not answer within {GENERATE_TIMEOUT:.0f} s"
             log.warning("#%s: %s", request_id, reason)
             await announce(db.set_status(request_id, db.FAILED, reason))
             return
@@ -216,7 +216,7 @@ async def run_job(row: dict) -> None:
             if current and current["status"] not in db.ACTIVE:
                 return
         await announce(db.set_status(request_id, db.FAILED,
-                                     "воркер не ответил вовремя"))
+                                     "The builder did not report back in time"))
     finally:
         worker.busy = False
 
@@ -269,14 +269,14 @@ def public_url(request: Request) -> str:
 
 FALLBACK_INDEX = """<!doctype html><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>Что построить?</title>
+<title>What should we build?</title>
 <body style="font:16px system-ui;max-width:28rem;margin:3rem auto;padding:1rem">
-<h1>Что построить в Minecraft?</h1>
+<h1>What should we build in Minecraft?</h1>
 <form onsubmit="send(event)">
-  <input id=t placeholder="маяк, дракон, Golden Gate…" required
+  <input id=t placeholder="lighthouse, dragon, Golden Gate…" required
          style="width:100%;padding:.8rem;font-size:1rem">
   <button style="margin-top:.6rem;padding:.8rem 1.2rem;font-size:1rem">
-    Отправить</button>
+    Send</button>
 </form>
 <p id=s></p>
 <script>
@@ -285,20 +285,20 @@ async function send(e){e.preventDefault();
     headers:{'content-type':'application/json'},
     body:JSON.stringify({text:t.value})});
   const d=await r.json();
-  s.textContent=r.ok?'Запрос #'+d.id+' отправлен на модерацию':d.detail;}
+  s.textContent=r.ok?'Idea #'+d.id+' sent for review':d.detail;}
 new WebSocket(location.origin.replace('http','ws')+'/ws/public')
   .onmessage=m=>{const d=JSON.parse(m.data);
     if(d.request)s.textContent='#'+d.request.id+': '+d.request.status;};
 </script>"""
 
-FALLBACK_SCREEN = """<!doctype html><meta charset=utf-8><title>Экран</title>
+FALLBACK_SCREEN = """<!doctype html><meta charset=utf-8><title>Screen</title>
 <body style="font:20px system-ui;background:#111;color:#eee;padding:2rem">
-<h1 id=h>Ждём запросы…</h1><pre id=q></pre>
+<h1 id=h>Waiting for ideas…</h1><pre id=q></pre>
 <script>
 new WebSocket(location.origin.replace('http','ws')+'/ws/screen')
   .onmessage=m=>{const d=JSON.parse(m.data);
-    if(d.stats)h.textContent='Построено: '+d.stats.built+
-      ' | в очереди: '+d.stats.waiting+' | блоков: '+d.stats.blocks;
+    if(d.stats)h.textContent='Built: '+d.stats.built+
+      ' | in queue: '+d.stats.waiting+' | blocks: '+d.stats.blocks;
     if(d.request)q.textContent='#'+d.request.id+' '+d.request.text+
       ' → '+d.request.status;};
 </script>"""
@@ -338,7 +338,7 @@ async def api_request(request: Request) -> JSONResponse:
     body = await request.json()
     text = (body.get("text") or "").strip()
     if not 2 <= len(text) <= 300:
-        raise HTTPException(400, "Напиши от 2 до 300 символов")
+        raise HTTPException(400, "Write between 2 and 300 characters")
 
     ip = request.client.host if request.client else ""
     if RATE_LIMIT and ip:
@@ -348,7 +348,8 @@ async def api_request(request: Request) -> JSONResponse:
                    - datetime.fromisoformat(last["created_at"])).total_seconds()
             if age < RATE_LIMIT:
                 raise HTTPException(
-                    429, f"Подожди {int(RATE_LIMIT - age)} сек перед новым запросом")
+                    429, f"Please wait {int(RATE_LIMIT - age)} seconds "
+                         f"before sending another idea")
 
     row = db.add(text, author=(body.get("author") or "")[:40], ip=ip)
     start_pregen(row["id"], row["text"])
@@ -374,7 +375,7 @@ async def api_approve(secret: str, request_id: int) -> dict:
     check_secret(secret)
     row = db.get(request_id)
     if not row:
-        raise HTTPException(404, "нет такого запроса")
+        raise HTTPException(404, "No such request")
     if row["status"] not in (db.PENDING, db.FAILED, db.REJECTED):
         return row        # уже одобрен или строится: повторный клик ничего не ломает
     row = db.set_status(request_id, db.APPROVED)
@@ -388,7 +389,7 @@ async def api_reject(secret: str, request_id: int) -> dict:
     cancel_pregen(request_id)
     row = db.set_status(request_id, db.REJECTED)
     if not row:
-        raise HTTPException(404, "нет такого запроса")
+        raise HTTPException(404, "No such request")
     await announce(row)
     return slim(row)
 
@@ -400,7 +401,7 @@ async def api_edit(secret: str, request_id: int, request: Request) -> dict:
     body = await request.json()
     row = db.update_text(request_id, (body.get("text") or "").strip())
     if not row:
-        raise HTTPException(404, "нет такого запроса")
+        raise HTTPException(404, "No such request")
     if row["status"] == db.PENDING:
         cancel_pregen(request_id)
         row = db.clear_program(request_id)

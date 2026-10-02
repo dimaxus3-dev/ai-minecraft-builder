@@ -1,7 +1,12 @@
 """Мост Золотые Ворота: две башни с порталами, главный пролёт с параболическими тросами,
-подвески, боковые пролёты, ферма под полотном, море."""
+подвески, боковые пролёты, ферма под полотном, море и два мыса по берегам.
+
+Без берегов мост висел в пустой воде и не читался: настоящий Golden Gate узнают
+по тому, что он соединяет два холма над проливом."""
 
 from __future__ import annotations
+
+import math
 
 from .kit import Canvas
 
@@ -10,6 +15,7 @@ SIDE = 30               # боковой пролёт с каждой сторо
 DECK = 12               # высота полотна над морем
 TOP = 46                # высота верха башен над морем
 HW = 6                  # половина ширины полотна
+LAND = 20               # длина мыса за каждым концом моста
 OR = "orange_concrete"
 DARK = "red_concrete"
 
@@ -21,9 +27,49 @@ def build() -> dict:
     cz = 0
 
     # море: плитки двух оттенков, чтобы не было плоской заливки
-    for x in range(-L - 4, L + 5):
-        for z in range(-20, 21):
+    for x in range(-L - LAND - 2, L + LAND + 3):
+        for z in range(-24, 25):
             c.set(x, 0, z, "blue_concrete" if (x * 7 + z * 13) % 11 else "light_blue_concrete")
+
+    # Мысы: холмы со скальным обрывом к воде. Дорога идёт по ним в выемке,
+    # поэтому полотно продолжается, а не обрывается в пустоту.
+    for sign in (-1, 1):
+        for i in range(LAND + 1):
+            x = sign * (L + i)
+            t = i / LAND
+            crest = DECK + round(16 * t)                   # холм поднимается от моста
+            for z in range(-24, 25):
+                shore = 21 - abs(z) * 0.25
+                if abs(z) > shore:
+                    continue
+                # склон косинусом, а не прямой: иначе мыс выходит столовой горой
+                fall = min(1.0, max(0.0, (abs(z) - 7) / max(1.0, shore - 7)))
+                h = round(crest * (0.5 + 0.5 * math.cos(math.pi * fall)))
+                h += round(1.6 * math.sin(x * 0.6) + 1.6 * math.cos(z * 0.45))   # неровность
+                if h < 1:
+                    continue
+                for y in range(0, h + 1):
+                    if y == h:
+                        c.set(x, y, z, "grass_block" if h > DECK - 2 else "sand")
+                    elif y > h - 3:
+                        c.set(x, y, z, "dirt" if h > DECK - 2 else "sand")
+                    else:
+                        c.set(x, y, z, "stone" if (x * 3 + y + z) % 6 else "andesite")
+            # выемка под дорогу
+            c.box((x, DECK + 1, -HW), (x, DECK + 6, HW), "air")
+            c.box((x, DECK, -HW), (x, DECK, HW), "gray_concrete")
+            if x % 4 in (0, 1):
+                c.set(x, DECK, 0, "yellow_concrete")
+            for z in (-HW, HW):                            # откосы выемки
+                c.set(x, DECK + 1, z, "stone_bricks")
+            # деревья по гребню
+            if i > 4 and i % 5 == 0:
+                for z in (-15, 16):
+                    fall = min(1.0, max(0.0, (abs(z) - 7) / max(1.0, 21 - abs(z) * 0.25 - 7)))
+                    base_h = round(crest * (0.5 + 0.5 * math.cos(math.pi * fall)))
+                    base_h += round(1.6 * math.sin(x * 0.6) + 1.6 * math.cos(z * 0.45))
+                    c.line((x, base_h, z), (x, base_h + 5, z), "spruce_log", 1)
+                    c.sphere((x, base_h + 7, z), 3, "spruce_leaves")
 
     # полотно дороги, разметка, ограждение, фонари
     for x in range(-L, L + 1):
@@ -50,7 +96,14 @@ def build() -> dict:
         for z in (-HW, HW):
             c.box((tx - 1, 0, z - 1), (tx + 1, DECK + 8, z + 1), OR)          # нижняя часть шире
             c.box((tx - 1, DECK + 8, z - 1), (tx, TOP - 5, z), OR)
+            # ар-деко: уступы с тенью, по ним башню и узнают
+            for k, y in enumerate(range(DECK + 12, TOP - 5, 7)):
+                c.box((tx - 1, y, z - 1), (tx + 1, y, z + 1), DARK)
+                c.box((tx - 1, y + 1, z - 1), (tx + 1, y + 1, z + 1), OR)
             c.box((tx - 1, TOP - 5, z - 1), (tx, TOP, z), DARK)                # навершие
+            c.box((tx - 2, TOP - 5, z - 2), (tx + 1, TOP - 5, z + 1), DARK)    # карниз
+            c.set(tx, TOP + 1, z, "red_concrete")                              # огонь на вершине
+            c.set(tx, TOP + 2, z, "glowstone")
         for y in (DECK + 8, DECK + 17, DECK + 26, TOP - 3):
             c.box((tx - 1, y, -HW + 2), (tx, y + 1, HW - 2), OR)              # поперечная балка
         for y in (DECK + 8, DECK + 17, DECK + 26):                            # кресты между балками

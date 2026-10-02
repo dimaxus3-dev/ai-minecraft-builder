@@ -91,7 +91,10 @@ def _load() -> None:
         try:
             mod = importlib.import_module(f"{__name__}.landmarks.{info.name}")
             register(Entry(mod.ID, mod.TITLE_EN, mod.TITLE_RU, [tuple(a) for a in mod.ALIASES],
-                           mod.build, getattr(mod, "ABOUT", "")))
+                           mod.build, getattr(mod, "ABOUT", ""),
+                           generic=getattr(mod, "GENERIC", False),
+                           tunable=getattr(mod, "TUNABLE", False),
+                           max_words=getattr(mod, "MAX_WORDS", 3)))
         except Exception as e:                      # кривой плагин не должен ронять всю библиотеку
             import logging
             logging.getLogger("hack.blueprints").warning("плагин %s не загружен: %s", info.name, e)
@@ -647,10 +650,26 @@ def params_for(id: str, request_text: str) -> dict:
     if not entry:
         return {}
     from . import params
-    found = params.parse(request_text)
+    found = params.parse(_without_own_words(entry, request_text))
     if not entry.tunable:
         found.pop("scale", None)      # чужой генератор размера не понимает
     return found
+
+
+def _without_own_words(entry: Entry, text: str) -> str:
+    """Убирает из запроса слова собственного названия здания.
+
+    «Golden Gate Bridge» перекрашивался в золото: слово Golden из его же имени
+    срабатывало как цвет, и международный оранжевый превращался в золотой блок.
+    То же было бы с «Белым домом» и «Голубой мечетью»."""
+    own = {part for alias in entry.aliases for part in alias}
+    own |= {w for title in (entry.title_en, entry.title_ru) for w in _text(title).split()}
+    kept = []
+    for word in _text(text).split():
+        if any(word.startswith(o) or o.startswith(word) for o in own if len(o) >= 3):
+            continue
+        kept.append(word)
+    return " ".join(kept)
 
 
 def title(id: str, request_text: str = "") -> str:
