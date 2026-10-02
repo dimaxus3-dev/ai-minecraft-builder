@@ -84,6 +84,12 @@ class Camera:
             return bool(self.name)
         return False
 
+    def quiet(self) -> None:
+        """Выключить отчёты о командах в чате: иначе каждый телепорт камеры (≈10 в секунду) пишет
+        строку «[GDMC-CommandHandler: Teleported …]» и чат забивает экран."""
+        for rule in ("sendCommandFeedback", "logAdminCommands", "commandBlockOutput"):
+            self._run(f"gamerule {rule} false")
+
     def _tp(self, pos, target) -> None:
         x, y, z = pos
         tx, ty, tz = target

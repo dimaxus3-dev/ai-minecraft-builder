@@ -50,6 +50,7 @@ class Show:
 
     def __init__(self) -> None:
         self.cam = Camera()
+        self.cam.quiet()                      # чат без отчётов о каждом телепорте
         self.idle_on = os.getenv("CAMERA_IDLE", "on").lower() not in ("off", "0", "false", "no")
         self.built: list[dict] = self._load()
         self._stop: threading.Event | None = None
