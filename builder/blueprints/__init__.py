@@ -31,6 +31,7 @@ class Entry:
     generic: bool = False      # типовое здание: берём чертёж только на короткий запрос
     tunable: bool = False      # принимает цвет/размер/материал из запроса (params.py)
     max_words: int = 3         # предел длины запроса для generic-записей
+    listed: bool = True        # показывать ли модели как основу для вариации
 
 
 REGISTRY: dict[str, Entry] = {}
@@ -224,7 +225,8 @@ def _load_families() -> None:
 
     def add(id_, en, ru, aliases, fn, about, **kw):
         register(Entry(id_, en, ru, [tuple(a) for a in aliases],
-                       partial(fn, **kw) if kw else fn, about, tunable=True))
+                       partial(fn, **kw) if kw else fn, about,
+                       tunable=True, listed=False))
 
     # --- небоскрёбы --------------------------------------------------------
     T = W.tower
@@ -661,9 +663,16 @@ def title(id: str, request_text: str = "") -> str:
 
 
 def listing() -> str:
-    """Список чертежей для подсказки LLM."""
+    """Список чертежей для подсказки LLM — только те, что годятся как основа.
+
+    Показывать модели все сто с лишним незачем: точное название ловит `match`
+    задолго до неё, а лишние три тысячи токенов в каждом запросе её только
+    замедляют. Модели нужны образцы, на которых строят вариацию
+    («замок с драконом»), поэтому семейства башен и классики сюда не идут."""
     lines = []
     for e in REGISTRY.values():
+        if not e.listed:
+            continue
         v = build(e.id)
         w, h, d = (max(p[i] for p in v) + 1 for i in range(3))
         lines.append(f'- "{e.id}" ({w}x{h}x{d} blocks): {e.title_en} - {e.about}')
