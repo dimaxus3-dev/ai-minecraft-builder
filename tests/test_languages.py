@@ -25,7 +25,9 @@ class BlueprintMatchTests(unittest.TestCase):
 
     def test_общее_слово_в_длинном_запросе_отдаём_модели(self):
         self.assertEqual(blueprints.match("замок"), "castle")
+        # длинное описание — работа для модели, иначе дракона никто не построит
         self.assertIsNone(blueprints.match("розовый замок с драконом на крыше"))
+        self.assertIsNone(blueprints.match("домик хоббита в зелёном холме у реки"))
 
     def test_показ_идёт_на_английском(self):
         # запрос может быть на любом языке, но в игре и на экране — английский

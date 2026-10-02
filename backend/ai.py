@@ -387,7 +387,18 @@ def generate(
         log.info("«%s»: здание с карты OpenStreetMap за %.1f с, %s",
                  text[:40], time.time() - t0, list(program.size))
         return program
-    return _result(model_job, timeout * len(chain) + hedge * len(chain) + 10, raise_on_error=True)
+    try:
+        return _result(model_job, timeout * len(chain) + hedge * len(chain) + 10,
+                       raise_on_error=True)
+    except Exception as e:
+        # В зале отказ выглядит хуже, чем похожая постройка: если в запросе есть хоть
+        # что-то знакомое («хижина дракона», «supercar»), строим ближайший чертёж.
+        near = blueprints.soft_match(text)
+        if near:
+            log.warning("«%s»: модель не справилась (%s), беру ближайший чертёж %s",
+                        text[:40], type(e).__name__, near)
+            return blueprint_program(near, text)
+        raise
 
 
 def _osm_program(text: str) -> BuildProgram | None:

@@ -54,6 +54,39 @@ class ParamTests(unittest.TestCase):
         big = blueprints.build("plane", {"scale": 1.45})
         self.assertGreater(len(big), len(white))
 
-    def test_параметры_принимают_только_настраиваемые_чертежи(self):
+    def test_цвет_работает_и_там_где_генератор_о_нём_не_знает(self):
+        # свой параметр у самолёта, перекраска готовых блоков у башни
         self.assertEqual(blueprints.params_for("plane", "красный самолёт")["main"], "red_concrete")
-        self.assertEqual(blueprints.params_for("eiffel_tower", "красная эйфелева башня"), {})
+        self.assertEqual(blueprints.params_for("eiffel_tower", "золотая эйфелева башня")["main"],
+                         "gold_block")
+        # размер понимает только тот, кто умеет: чужому генератору его не передаём
+        self.assertNotIn("scale", blueprints.params_for("eiffel_tower", "большая эйфелева башня"))
+        self.assertIn("scale", blueprints.params_for("plane", "большой самолёт"))
+
+
+class SoftMatchTests(unittest.TestCase):
+    """Любой запрос должен во что-то попадать, а не падать в минутное ожидание."""
+
+    def test_корень_внутри_слова_находит_ближайшее(self):
+        self.assertEqual(blueprints.match("Supercar"), "supercar")
+        self.assertEqual(blueprints.match("Viking mansion"), "mansion")
+        self.assertEqual(blueprints.match("greenhouse"), "house")
+        self.assertEqual(blueprints.match("skyscrapers"), "skyscraper")
+
+    def test_короткий_корень_в_мягкий_проход_не_идёт(self):
+        # «car» и «дом» слишком коротки, иначе они ловили бы пол-словаря
+        self.assertIsNone(blueprints.soft_match("oscar wilde"))
+        self.assertIsNone(blueprints.soft_match("бездомный кот"))
+
+    def test_стиль_из_запроса_красит_любой_чертёж(self):
+        from collections import Counter
+        plain = Counter(blueprints.build("castle").values())
+        icy = Counter(blueprints.build("castle", {"main": "packed_ice",
+                                                  "accent": "snow_block"}).values())
+        self.assertGreater(icy["packed_ice"], 100)
+        self.assertEqual(plain["air"], icy["air"])     # форма та же, цвет другой
+
+    def test_стиль_разбирается_из_текста(self):
+        self.assertEqual(params.parse("viking mansion")["main"], "spruce_planks")
+        self.assertEqual(params.parse("ледяной замок")["main"], "packed_ice")
+        self.assertEqual(params.parse("supercar")["main"], "red_concrete")

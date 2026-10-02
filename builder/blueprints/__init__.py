@@ -169,6 +169,15 @@ def _load() -> None:
          [("часов", "башн"), ("clock", "tower"), ("биг", "бен"), ("big", "ben"),
           ("куранты",), ("clocktower",)], T.clock_tower,
          "clock tower: tall shaft, belfry with four clock faces, pinnacles, tall spire with a lamp"),
+        ("mansion", "Mansion", "Особняк",
+         [("особняк",), ("mansion",), ("усадьб",), ("поместь",), ("villa",), ("вилла",),
+          ("manor",), ("резиденц",), ("estate",), ("chateau",), ("шато",)], T.mansion,
+         "two-storey manor: side wings, tall hip roof, rooftop turret, columned porch, chimneys, garden"),
+        ("supercar", "Supercar", "Суперкар",
+         [("суперкар",), ("supercar",), ("спорткар",), ("sportscar",), ("sports", "car"),
+          ("гоноч",), ("racing", "car"), ("ferrari",), ("феррари",), ("lamborghini",),
+          ("ламборг",), ("porsche",), ("порше",), ("болид",), ("bugatti",)], T.car,
+         "low sports car on asphalt: sleek body, glazed cabin, wide wheels"),
         ("igloo", "Igloo", "Иглу",
          [("иглу",), ("igloo",), ("снежн", "дом"), ("ледян", "дом")], T.igloo,
          "igloo: snow dome with ice courses, entrance tunnel, ice windows, campfire, snow drifts"),
@@ -176,13 +185,18 @@ def _load() -> None:
         register(Entry(id_, en, ru, al, fn, about, tunable=True))
 
     for id_, en, ru, al, fn, about in (
-        ("castle", "Castle", "Замок", [("замок",), ("castle",), ("крепост",), ("fortress",)], A.castle,
+        ("castle", "Castle", "Замок", [("замок",), ("castle",), ("крепост",), ("fortress",), ("форт",), ("fort",),
+          ("цитадел",), ("citadel",), ("кремл",), ("kremlin",), ("бастион",), ("keep",)], A.castle,
          "stone castle with moat, four corner towers with red cone roofs, gatehouse, keep"),
-        ("house", "House", "Дом", [("дом",), ("house",), ("cottage",), ("коттедж",), ("избушк",)], A.house,
+        ("house", "House", "Дом", [("дом",), ("house",), ("cottage",), ("коттедж",), ("избушк",), ("домик",), ("хижин",),
+          ("hut",), ("cabin",), ("шале",), ("chalet",), ("бунгало",), ("bungalow",), ("изба",)], A.house,
          "timber-framed cottage with gable roof, chimney, fence, path"),
-        ("skyscraper", "Skyscraper", "Небоскрёб", [("небоскр",), ("skyscraper",), ("высотк",)], A.skyscraper,
+        ("skyscraper", "Skyscraper", "Небоскрёб", [("небоскр",), ("skyscraper",), ("высотк",), ("башня",), ("башню",), ("tower",),
+          ("офис",), ("office",), ("бизнес",), ("hotel",), ("отел",), ("гостиниц",)], A.skyscraper,
          "glass office tower with setbacks, antenna"),
-        ("cathedral", "Cathedral", "Собор", [("собор",), ("cathedral",), ("церков",), ("church",)], A.cathedral,
+        ("cathedral", "Cathedral", "Собор", [("собор",), ("cathedral",), ("церков",), ("church",), ("храм",), ("temple",),
+          ("часовн",), ("chapel",), ("монастыр",), ("monastery",), ("базилик",), ("basilica",),
+          ("костёл",), ("костел",), ("kirche",)], A.cathedral,
          "gothic cathedral: nave, transept, two towers with spires, stained glass, rose window"),
         ("pagoda", "Pagoda", "Пагода", [("пагод",), ("pagoda",)], A.pagoda,
          "five-tier pagoda with upturned eaves and gold finial"),
@@ -206,7 +220,7 @@ def _has_stem(text: str, stem: str) -> bool:
 
 
 def match(text: str) -> str | None:
-    """id чертежа, если запрос про известное здание, иначе None."""
+    """id чертежа, если запрос про известное здание или предмет, иначе None."""
     t = _text(text)
     words = len(t.split())
     for entry in REGISTRY.values():
@@ -214,7 +228,50 @@ def match(text: str) -> str | None:
             continue          # «красный замок с драконом» — пожелания, пусть думает модель
         if any(all(_has_stem(t, part) for part in alias) for alias in entry.aliases):
             return entry.id
-    return None
+    # Мягкий проход — только для коротких запросов-существительных («Supercar»,
+    # «Viking mansion»). Длинное описание («розовый замок с драконом на крыше») —
+    # это задача для модели, в ней весь смысл открытого ИИ в проекте.
+    return soft_match(t) if words <= int(os.getenv("SOFT_MATCH_WORDS", 3)) else None
+
+
+def soft_match(text: str) -> str | None:
+    """Второй проход: корень разрешаем и внутри слова, но только длинный.
+    «supercar» -> машина, «greenhouse» -> дом, «skyscrapers» -> небоскрёб.
+    Короткие корни («дом», «car») сюда не попадают: они ловили бы пол-словаря."""
+    t = _text(text)
+    best, best_len = None, 0
+    for entry in REGISTRY.values():
+        for alias in entry.aliases:
+            if all(part in t for part in alias):
+                length = sum(len(part) for part in alias)
+                if length >= 5 and length > best_len:
+                    best, best_len = entry.id, length
+    return best
+
+
+# что перекрашивать нельзя: земля, вода, стекло и всё светящееся — иначе
+# «ледяной замок» получит ледяную траву и погасшие окна
+KEEP = {"air", "water", "lava", "grass_block", "dirt", "dirt_path", "gravel", "sand",
+        "glass", "iron_bars", "glowstone", "sea_lantern", "lantern", "torch", "fire",
+        "campfire", "redstone_lamp", "coal_block", "oak_leaves", "spruce_leaves"}
+
+
+def _recolor(voxels: dict, main: str | None, accent: str | None) -> dict:
+    """Перекраска готового чертежа: две самые частые несущие породы меняем на
+    запрошенные. Так стиль и цвет работают даже там, где генератор про них не знает —
+    «ледяной замок», «золотая эйфелева башня»."""
+    if not main:
+        return voxels
+    from collections import Counter
+    counts = Counter(b for b in voxels.values()
+                     if b not in KEEP and not b.endswith("_stained_glass"))
+    top = [b for b, _ in counts.most_common(2)]
+    swap: dict[str, str] = {}
+    if top:
+        swap[top[0]] = main
+    if accent and len(top) > 1:
+        swap[top[1]] = accent
+    return {p: swap.get(b, b) for p, b in voxels.items()}
 
 
 @lru_cache(maxsize=256)
@@ -226,17 +283,24 @@ def build(id: str, params: dict | None = None) -> dict:
     """Блоки чертежа {(x, y, z): блок} со сдвигом в ноль."""
     if id not in REGISTRY:
         raise ValueError(f"нет такого чертежа: {id}")
-    return _built(id, tuple(sorted((params or {}).items())))
+    params = dict(params or {})
+    if REGISTRY[id].tunable:
+        return _built(id, tuple(sorted(params.items())))
+    # генератор параметров не принимает — красим уже готовые блоки
+    return _recolor(_built(id, ()), params.get("main"), params.get("accent"))
 
 
 def params_for(id: str, request_text: str) -> dict:
     """Цвет, размер и материал из запроса — для чертежей, которые их принимают.
     Благодаря этому один чертёж даёт тысячи разных построек."""
     entry = REGISTRY.get(id)
-    if not entry or not entry.tunable:
+    if not entry:
         return {}
     from . import params
-    return params.parse(request_text)
+    found = params.parse(request_text)
+    if not entry.tunable:
+        found.pop("scale", None)      # чужой генератор размера не понимает
+    return found
 
 
 def title(id: str, request_text: str = "") -> str:

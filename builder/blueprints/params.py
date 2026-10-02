@@ -42,6 +42,26 @@ MATERIALS: dict[tuple[str, ...], tuple[str, str]] = {
     ("обсидиан", "obsidian"): ("obsidian", "blackstone"),
 }
 
+# стиль задаёт пару материалов целиком: «viking mansion», «ледяной замок», «неоновый робот»
+STYLES: dict[tuple[str, ...], tuple[str, str]] = {
+    ("викинг", "viking", "норд", "nordic", "скандинав"): ("spruce_planks", "stone_bricks"),
+    ("пират", "pirate", "корсар"): ("dark_oak_planks", "black_concrete"),
+    ("готич", "gothic", "вампир", "vampire", "хэллоуин", "halloween"): ("deepslate_bricks", "blackstone"),
+    ("футурист", "futuristic", "космич", "space", "sci", "будущ"): ("quartz_block", "light_blue_concrete"),
+    ("современ", "modern", "минимал", "minimal"): ("smooth_quartz", "light_gray_concrete"),
+    ("античн", "ancient", "римск", "roman", "греч", "greek"): ("smooth_sandstone", "quartz_block"),
+    ("пустын", "desert", "египет", "egypt", "египт"): ("smooth_sandstone", "gold_block"),
+    ("ледян", "frozen", "зимн", "winter", "арктич", "arctic"): ("packed_ice", "snow_block"),
+    ("джунгл", "jungle", "тропич", "tropical"): ("jungle_planks", "mossy_cobblestone"),
+    ("адск", "nether", "демон", "demon", "вулкан", "volcano"): ("nether_bricks", "red_nether_bricks"),
+    ("неон", "neon", "кибер", "cyber"): ("black_concrete", "cyan_concrete"),
+    ("королев", "royal", "царск", "imperial", "императорск"): ("quartz_block", "gold_block"),
+    ("военн", "military", "army", "армейск", "камуфляж"): ("green_concrete", "gray_concrete"),
+    ("гоноч", "racing", "спортивн", "sport", "супер", "super"): ("red_concrete", "black_concrete"),
+    ("лесн", "forest", "эльф", "elven", "друид"): ("oak_planks", "green_concrete"),
+    ("стимпанк", "steampunk", "индустриал", "industrial"): ("weathered_copper", "polished_blackstone"),
+}
+
 BIG = ("больш", "огромн", "гигант", "великан", "big", "huge", "giant", "massive", "mega", "tall")
 SMALL = ("маленьк", "мал", "небольш", "крошеч", "мини", "small", "tiny", "little", "mini")
 
@@ -56,15 +76,20 @@ def parse(text: str) -> dict[str, float | str]:
     low = re.sub(r"[^\w\s]", " ", text.lower().replace("ё", "е"))
     params: dict[str, float | str] = {}
 
-    for words, (main, accent) in MATERIALS.items():
+    for words, (main, accent) in STYLES.items():
         if _hit(low, [w.replace("ё", "е") for w in words]):
             params["main"], params["accent"] = main, accent
             break
     else:
-        for words, (main, accent) in COLORS.items():
+        for words, (main, accent) in MATERIALS.items():
             if _hit(low, [w.replace("ё", "е") for w in words]):
                 params["main"], params["accent"] = main, accent
                 break
+        else:
+            for words, (main, accent) in COLORS.items():
+                if _hit(low, [w.replace("ё", "е") for w in words]):
+                    params["main"], params["accent"] = main, accent
+                    break
 
     if _hit(low, BIG):
         params["scale"] = 1.45

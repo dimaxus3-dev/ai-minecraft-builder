@@ -878,3 +878,71 @@ def igloo(main: str = "snow_block", accent: str = "packed_ice",
         a = math.radians(k * 61)
         c.sphere((cx + math.cos(a) * (R + 6), 0, cz + math.sin(a) * (R + 6)), 2, main)
     return c.v
+
+
+def mansion(main: str = "spruce_planks", accent: str = "stone_bricks",
+            scale: float = 1.0) -> dict:
+    """Особняк: два этажа с крыльями, высокая крыша, башенка, крыльцо с колоннами, сад."""
+    c = Canvas()
+    W = max(14, round(21 * scale))             # полуширина центрального корпуса
+    D = max(10, round(15 * scale))             # полуглубина
+    floor = max(6, round(8 * scale))
+    cx, cz = W + 12, D + 12
+
+    # сад, дорожка и ограда
+    c.box((cx - W - 11, 0, cz - D - 11), (cx + W + 11, 0, cz + D + 11), "grass_block")
+    c.box((cx - 3, 0, cz - D - 11), (cx + 3, 0, cz - D - 1), "gravel")
+    for x in range(cx - W - 11, cx + W + 12, 3):
+        c.box((x, 1, cz - D - 11), (x, 2, cz - D - 11), accent)
+        c.box((x, 1, cz + D + 11), (x, 2, cz + D + 11), accent)
+
+    # цоколь и два этажа
+    c.box((cx - W, 1, cz - D), (cx + W, 1, cz + D), accent)
+    for level in range(2):
+        y0 = 2 + level * floor
+        c.hollow((cx - W, y0, cz - D), (cx + W, y0 + floor - 1, cz + D), main, 1)
+        for x in range(cx - W + 3, cx + W - 2, 5):          # окна
+            c.box((x, y0 + 2, cz - D), (x + 1, y0 + 4, cz - D), "glass")
+            c.box((x, y0 + 2, cz + D), (x + 1, y0 + 4, cz + D), "glass")
+        for z in range(cz - D + 3, cz + D - 2, 5):
+            c.box((cx - W, y0 + 2, z), (cx - W, y0 + 4, z + 1), "glass")
+            c.box((cx + W, y0 + 2, z), (cx + W, y0 + 4, z + 1), "glass")
+        c.box((cx - W, y0 - 1, cz - D), (cx + W, y0 - 1, cz + D), accent)   # поясок
+
+    top = 2 + 2 * floor
+    # боковые крылья пониже
+    for side in (1, -1):
+        wx = cx + side * (W + max(5, round(8 * scale)))
+        c.hollow((wx - 5, 2, cz - D + 3), (wx + 5, 2 + floor, cz + D - 3), main, 1)
+        c.roof((wx - 6, 3 + floor, cz - D + 2), (wx + 6, 3 + floor, cz + D - 2), accent, style="gable")
+        for z in range(cz - D + 5, cz + D - 4, 4):
+            c.box((wx + side * 5, 4, z), (wx + side * 5, 6, z), "glass")
+
+    c.roof((cx - W - 1, top, cz - D - 1), (cx + W + 1, top, cz + D + 1), accent, style="hip")
+
+    # крыльцо с колоннами и ступенями
+    for x in (-5, -2, 2, 5):
+        c.cyl((cx + x, 2, cz - D - 4), 1, floor + 2, accent)
+    c.box((cx - 7, 2 + floor + 2, cz - D - 6), (cx + 7, 2 + floor + 3, cz - D), accent)
+    c.roof((cx - 7, 2 + floor + 4, cz - D - 6), (cx + 7, 2 + floor + 4, cz - D), accent, style="gable")
+    for k in range(3):
+        c.box((cx - 6 + k, 1 + k, cz - D - 7 + k), (cx + 6 - k, 1 + k, cz - D - 7 + k), accent)
+    c.carve((cx - 2, 2, cz - D), (cx + 2, 6, cz - D))
+    c.box((cx - 2, 2, cz - D), (cx + 2, 5, cz - D), "dark_oak_planks")
+
+    # башенка на крыше
+    tw = max(4, round(6 * scale))
+    c.hollow((cx - tw, top, cz - tw), (cx + tw, top + max(9, round(13 * scale)), cz + tw), accent, 1)
+    ty = top + max(9, round(13 * scale))
+    for side in (-1, 1):
+        c.box((cx + side * tw, top + 3, cz - 1), (cx + side * tw, top + 6, cz + 1), "glass")
+        c.box((cx - 1, top + 3, cz + side * tw), (cx + 1, top + 6, cz + side * tw), "glass")
+    c.cone((cx, ty + 1, cz), tw + 1, max(8, round(11 * scale)), main)
+    c.line((cx, ty + 1 + max(8, round(11 * scale)), cz),
+           (cx, ty + 4 + max(8, round(11 * scale)), cz), "iron_bars", 1)
+    c.set(cx, ty + 5 + max(8, round(11 * scale)), cz, "gold_block")
+
+    # трубы
+    for side in (1, -1):
+        c.box((cx + side * (W - 4), top + 1, cz + D - 4), (cx + side * (W - 2), top + 7, cz + D - 2), accent)
+    return c.v
