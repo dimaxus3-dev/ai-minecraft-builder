@@ -114,6 +114,13 @@ def _text(s: str) -> str:
     return re.sub(r"[^\w\s]", " ", s.lower().replace("ё", "е"))
 
 
+def _has_stem(text: str, stem: str) -> bool:
+    """Корень ищем только с начала слова. Иначе «lighthouse» ловилось на корень «house»
+    (дом зарегистрирован раньше маяка) и запрос про маяк строил дом; то же было бы с
+    «greenhouse», «courthouse», «подвал» и «вал»."""
+    return re.search(r"(?<!\w)" + re.escape(stem), text) is not None
+
+
 def match(text: str) -> str | None:
     """id чертежа, если запрос про известное здание, иначе None."""
     t = _text(text)
@@ -121,7 +128,7 @@ def match(text: str) -> str | None:
     for entry in REGISTRY.values():
         if entry.generic and words > 3:
             continue          # «красный замок с драконом» — пожелания, пусть думает модель
-        if any(all(part in t for part in alias) for alias in entry.aliases):
+        if any(all(_has_stem(t, part) for part in alias) for alias in entry.aliases):
             return entry.id
     return None
 

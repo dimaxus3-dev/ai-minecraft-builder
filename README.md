@@ -55,6 +55,15 @@ with fireworks. When the queue is empty the camera keeps touring the buildings a
 (`builder/camera.py`; `CAMERA=off` disables it, `CAMERA_IDLE=off` stops only the tour). The request is also generated in the background while it waits for the
 moderator, so approving it starts the build within a second.
 
+The camera updates at up to 20 frames per second, including command latency in the frame budget.
+`CAMERA_SPEED=8` limits the orbit to 8 degrees per second; `CAMERA_TRANSITION=3` sets the
+travel time between buildings. These settings live in `.env`; restart the worker after changing them.
+Actual visual smoothness still depends on Minecraft server ticks and client performance.
+
+For a remote server, set `VDS_WS_URL=wss://YOUR_DOMAIN/ws/worker` on the laptop and use the
+same `WORKER_SECRET` on both machines. Keep `MC_HTTP=http://localhost:9000` on the laptop.
+Only the worker connects out to the server; the Minecraft port does not need to be public.
+
 ## Open-weight models
 
 Open-weight AI is the core of the project: without it a sentence cannot become a structure.

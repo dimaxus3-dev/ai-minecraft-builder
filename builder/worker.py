@@ -22,6 +22,7 @@ import signal
 import sys
 import threading
 import time
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from pathlib import Path
 
 import websockets
@@ -125,18 +126,23 @@ async def handle_build(ws, message: dict, city: City, editor, duration: float, s
     if program.source == "model" and program.model:
         label = f"придумал ИИ: {program.model.split('/')[-1]}"
     await asyncio.to_thread(cam.begin, program.name, label or message.get("text", ""), origin, size)
+    flight = None
+    flight_stop = threading.Event()
     try:
         # площадка и дорожка — быстро, без анимации
         await asyncio.to_thread(functools.partial(
             build, city.pad_program(origin, size), origin, editor=editor, delay=0.0))
         # сама постройка растёт слоями, а камера в это время облетает её
-        flight = asyncio.create_task(asyncio.to_thread(cam.orbit, origin, size, duration))
+        flight = asyncio.create_task(asyncio.to_thread(cam.orbit, origin, size, duration, stop=flight_stop))
         report = await asyncio.to_thread(functools.partial(
             build, program, origin, editor=editor,
             duration=duration, clear=True, on_layer=on_layer))
         await flight
-    except Exception:
-        cam.restore()           # игрок не должен остаться в режиме наблюдателя
+    except BaseException:
+        flight_stop.set()
+        if flight is not None:
+            await flight
+        await asyncio.to_thread(cam.restore)
         raise
 
     await send(ws, {"type": "done", "id": request_id,
@@ -153,7 +159,8 @@ async def session(url: str, city: City, editor, duration: float, show: Show) -> 
     """Одно подключение к серверу: живёт, пока сокет жив."""
     async with websockets.connect(url, ping_interval=20, max_size=None) as ws:
         log.info("подключился к серверу")
-        await send(ws, {"type": "hello", "minecraft": interface.getVersion(),
+        await send(ws, {"type": "hello", "minecraft": await asyncio.to_thread(
+                            interface.getVersion, host=show.cam.host),
                         "city_center": list(city.center), "plots_taken": len(city.taken)})
         show.start_idle()                                # очередь пуста: показываем уже построенное
         try:
@@ -201,7 +208,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     secret = os.getenv("WORKER_SECRET") or os.getenv("ADMIN_SECRET", "dev")
-    default_url = f"ws://localhost:8000/ws/worker?secret={secret}"
+    default_url = "ws://localhost:8000/ws/worker"
 
     ap = argparse.ArgumentParser(description="Воркер-строитель")
     ap.add_argument("--url", default=os.getenv("VDS_WS_URL", default_url), help="адрес WebSocket сервера")
@@ -216,12 +223,15 @@ def main() -> None:
         Show().reset()
         log.info("участки города и список построенного очищены")
 
-    url = args.url
-    if "secret=" not in url:
-        url = f"{url}{'&' if '?' in url else '?'}secret={secret}"
+    parts = urlsplit(args.url)
+    if parts.scheme not in ("ws", "wss") or not parts.netloc:
+        ap.error("--url / VDS_WS_URL должен быть адресом ws:// или wss://")
+    query = dict(parse_qsl(parts.query))
+    query.setdefault("secret", secret)
+    url = urlunsplit(parts._replace(query=urlencode(query)))
 
     try:
-        print(f"Minecraft: {interface.getVersion()}")
+        print(f"Minecraft: {interface.getVersion(host=os.getenv('MC_HTTP', 'http://localhost:9000'))}")
     except Exception as e:
         log.error("Minecraft не отвечает на %s: %s", os.getenv("MC_HTTP", "http://localhost:9000"), e)
         return

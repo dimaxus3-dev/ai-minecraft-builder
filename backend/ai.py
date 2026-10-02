@@ -305,9 +305,13 @@ def generate(
 ) -> BuildProgram:
     """Запрос человека -> проверенная программа постройки.
 
-    Сначала основная модель (с одним повтором на исправление ошибки),
-    если совсем не вышло — запасная. В зале лучше построить что-то похуже,
-    чем ничего.
+    Три слоя, и побеждает первый, кто ответил делом:
+      1. готовый чертёж — мгновенно;
+      2. карта OpenStreetMap — 1-3 секунды;
+      3. открытая модель — 30-60 секунд.
+
+    Справка и карта запрашиваются одновременно, модель — только если карта
+    не успела за свою фору. В зале лучше построить что-то похуже, чем ничего.
     """
     api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("LLM_API_KEY")
     if not api_key:
@@ -326,24 +330,100 @@ def generate(
     known = blueprints.match(text)
     if known and not model:
         return blueprint_program(known, text)
-    hedge = float(os.getenv("LLM_HEDGE_SECONDS", 30))
-    reference = research.facts(text) if os.getenv("RESEARCH", "on").lower() != "off" else None
+    hedge = float(os.getenv("LLM_HEDGE_SECONDS", 8))
+
+    # Слои ищем ОДНОВРЕМЕННО. Раньше карту спрашивали только после Википедии, и один
+    # её сбой (таймаут 3.5 с) выбрасывал весь быстрый слой: запрос уходил к модели и
+    # ждал полторы минуты вместо трёх секунд.
+    t0 = time.time()
+    want_osm = os.getenv("OSM", "on").lower() != "off"
+    ref_job = _spawn(research.facts, text) if os.getenv("RESEARCH", "on").lower() != "off" else None
+    osm_job = _spawn(_osm_program, text) if want_osm else None
+
+    reference = _result(ref_job, float(os.getenv("RESEARCH_WAIT", 4)))
     log_unmatched(text, reference is not None)
     if reference:
         log.info("«%s»: справка найдена (%d символов)", text[:40], len(reference))
-        # названное здание: пробуем настоящие контуры и высоты с карты OpenStreetMap
-        if os.getenv("OSM", "on").lower() != "off":
+
+    def model_call(name: str) -> BuildProgram:
+        return _generate_with(name, text, limit, base_url, api_key, timeout,
+                              retries, temperature, max_tokens, reference)
+
+    # Карте даём фору: пока Википедия отвечала, карта обычно уже готова, и модель
+    # тогда не зовём вовсе — ни токенов, ни ожидания.
+    head_start = float(os.getenv("OSM_HEAD_START", 5))
+    program = _result(osm_job, max(0.0, head_start - (time.time() - t0)))
+    if program is not None:
+        log.info("«%s»: здание с карты OpenStreetMap за %.1f с, %s",
+                 text[:40], time.time() - t0, list(program.size))
+        return program
+
+    # Карта думает дольше обычного: запускаем модель параллельно, но ответ карты
+    # всё равно предпочитаем — он точнее.
+    model_job = _spawn(_race, chain, hedge, model_call)
+    program = _result(osm_job, max(0.0, float(os.getenv("OSM_WAIT", 12)) - (time.time() - t0)))
+    if program is not None:
+        log.info("«%s»: здание с карты OpenStreetMap за %.1f с, %s",
+                 text[:40], time.time() - t0, list(program.size))
+        return program
+    return _result(model_job, timeout * len(chain) + hedge * len(chain) + 10, raise_on_error=True)
+
+
+def _osm_program(text: str) -> BuildProgram | None:
+    """Карта в отдельном потоке: любая её беда — это просто «чертежа нет»."""
+    try:
+        from builder import osm
+        return osm.program_for(text)
+    except Exception as e:
+        log.info("«%s»: карта не ответила (%s)", text[:40], type(e).__name__)
+        return None
+
+
+class _Job:
+    """Фоновая работа в потоке-демоне. Брошенная задача умирает вместе с процессом,
+    поэтому отказ от неё (например, когда карта успела первой) ничего не держит.
+
+    Ответ запоминаем: «карта ничего не нашла» — это готовый ответ None, и ждать его
+    второй раз нельзя, иначе ожидание висит на пустой очереди."""
+
+    def __init__(self, fn, *args):
+        self.done = False
+        self.value = None
+        self.error: Exception | None = None
+        self._box: queue.Queue = queue.Queue(maxsize=1)
+        threading.Thread(target=self._run, args=(fn, args), daemon=True).start()
+
+    def _run(self, fn, args) -> None:
+        try:
+            self._box.put((fn(*args), None))
+        except Exception as e:
+            self._box.put((None, e))
+
+    def result(self, timeout: float, raise_on_error: bool = False):
+        """Ответ или None, если ещё не готов / не получилось."""
+        if not self.done:
             try:
-                from builder import osm
-                program = osm.program_for(text)
-            except Exception as e:
-                program = None
-                log.info("«%s»: карта не ответила (%s)", text[:40], type(e).__name__)
-            if program:
-                log.info("«%s»: здание с карты OpenStreetMap, %s", text[:40], list(program.size))
-                return program
-    return _race(chain, hedge, lambda name: _generate_with(
-        name, text, limit, base_url, api_key, timeout, retries, temperature, max_tokens, reference))
+                self.value, self.error = self._box.get(timeout=max(0.0, timeout))
+                self.done = True
+            except queue.Empty:
+                if raise_on_error:
+                    raise LLMError("модель не ответила вовремя")
+                return None
+        if self.error is not None:
+            if raise_on_error:
+                raise self.error
+            return None
+        return self.value
+
+
+def _spawn(fn, *args) -> _Job:
+    return _Job(fn, *args)
+
+
+def _result(job: _Job | None, timeout: float, raise_on_error: bool = False):
+    if job is None:
+        return None
+    return job.result(timeout, raise_on_error)
 
 
 def _race(chain: list[str], hedge: float, call) -> BuildProgram:

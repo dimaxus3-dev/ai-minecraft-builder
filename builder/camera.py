@@ -21,7 +21,7 @@ import time
 
 from gdpc import interface
 
-TICK = 0.08                      # пауза между кадрами облёта, ~10 кадров в секунду
+TICK = 0.05                      # один кадр на игровой тик, 20 кадров в секунду
 MODES = {0: "survival", 1: "creative", 2: "adventure", 3: "spectator"}
 _POS = re.compile(r"Pos:\[([-\d.]+)d,([-\d.]+)d,([-\d.]+)d\]")
 _ROT = re.compile(r"Rotation:\[([-\d.]+)f,([-\d.]+)f\]")
@@ -58,12 +58,15 @@ class Camera:
         self.original_mode: str | None = None
         self.angle = -60.0
         self.pos = None          # где камера была в последний раз (для звука)
+        self.rotation = None
+        self.speed = max(1.0, float(os.getenv("CAMERA_SPEED", "8")))
+        self.transition_seconds = max(0.5, float(os.getenv("CAMERA_TRANSITION", "3")))
 
     # --- низкий уровень ----------------------------------------------------
 
     def _run(self, command: str) -> bool:
         try:
-            result = interface.runCommand(command, host=self.host)
+            result = interface.runCommand(command, host=self.host, timeout=2)
             return bool(result) and all(ok for ok, _ in result)
         except Exception:
             return False
@@ -78,7 +81,14 @@ class Camera:
             if self.name and player.get("name") != self.name:
                 continue
             self.name = player.get("name")
-            match = _MODE.search(player.get("data", ""))
+            data = player.get("data", "")
+            pos = _POS.search(data)
+            rot = _ROT.search(data)
+            if pos:
+                self.pos = tuple(float(v) for v in pos.groups())
+            if rot:
+                self.rotation = tuple(float(v) for v in rot.groups())
+            match = _MODE.search(data)
             if match and self.original_mode is None:
                 self.original_mode = MODES.get(int(match.group(1)), "creative")
             return bool(self.name)
@@ -90,11 +100,52 @@ class Camera:
         for rule in ("sendCommandFeedback", "logAdminCommands", "commandBlockOutput"):
             self._run(f"gamerule {rule} false")
 
-    def _tp(self, pos, target) -> None:
+    def _look(self, pos, target):
+        dx, dy, dz = (b - a for a, b in zip(pos, target))
+        yaw = math.degrees(math.atan2(-dx, dz))
+        pitch = -math.degrees(math.atan2(dy, math.hypot(dx, dz)))
+        if self.rotation is not None:
+            yaw = self.rotation[0] + (yaw - self.rotation[0] + 180) % 360 - 180
+        return yaw, pitch
+
+    def _pose(self, pos, rotation) -> None:
         x, y, z = pos
-        tx, ty, tz = target
-        self.pos = (x, y, z)
-        self._run(f"tp {self.name} {x:.2f} {y:.2f} {z:.2f} facing {tx:.2f} {ty:.2f} {tz:.2f}")
+        yaw, pitch = rotation
+        if self._run(f"tp {self.name} {x:.4f} {y:.4f} {z:.4f} {yaw:.4f} {pitch:.4f}"):
+            self.pos, self.rotation = tuple(pos), tuple(rotation)
+
+    def _tp(self, pos, target) -> None:
+        self._pose(pos, self._look(pos, target))
+
+    def _frames(self, seconds, stop=None):
+        """Считаем время команды внутри кадра; после задержек не догоняем скачком."""
+        elapsed = 0.0
+        previous = time.monotonic()
+        while stop is None or not stop.is_set():
+            started = time.monotonic()
+            elapsed += min(started - previous, TICK * 2)
+            previous = started
+            yield min(elapsed / max(seconds, TICK), 1.0)
+            if elapsed >= seconds:
+                return
+            delay = max(0.0, TICK - (time.monotonic() - started))
+            if stop is not None:
+                if stop.wait(delay):
+                    return
+            else:
+                time.sleep(delay)
+
+    def transition(self, pos, target, stop=None) -> None:
+        """Мягко меняем положение и направление между сценами."""
+        if self.pos is None or self.rotation is None:
+            self._tp(pos, target)
+            return
+        start_pos, start_rot = self.pos, self.rotation
+        end_rot = self._look(pos, target)
+        for t in self._frames(self.transition_seconds, stop):
+            ease = t * t * (3 - 2 * t)
+            self._pose(tuple(a + (b - a) * ease for a, b in zip(start_pos, pos)),
+                       tuple(a + (b - a) * ease for a, b in zip(start_rot, end_rot)))
 
     # --- сцены -------------------------------------------------------------
 
@@ -107,7 +158,7 @@ class Camera:
                 return
             self._run(f"gamemode spectator {self.name}")
             self.angle = -60.0
-            self._tp(*shot(origin, size, self.angle))
+            self.transition(*shot(origin, size, self.angle))
             self._run("time set day")                  # полдень и ясно: кадр всегда яркий
             self._run("weather clear")
             self._title(title, text)
@@ -137,8 +188,9 @@ class Camera:
             i = 0
             while not stop.is_set():
                 name, origin, size = stops[i % len(stops)]
-                self.angle = (i * 70.0) % 360 - 60
-                self._tp(*shot(origin, size, self.angle))
+                self.transition(*shot(origin, size, self.angle), stop=stop)
+                if stop.is_set():
+                    break
                 self._title(name, "построено сегодня в зале")
                 self.orbit(origin, size, 16.0, sweep=200.0, stop=stop)
                 i += 1
@@ -147,20 +199,16 @@ class Camera:
 
     def orbit(self, origin, size, seconds: float, sweep: float = 220.0,
               closeness: float = 1.0, stop=None) -> None:
-        """Плавный облёт за `seconds` секунд (замедление в начале и в конце)."""
+        """Равномерный облёт с ограничением скорости и прерываемым ожиданием."""
         if not self.enabled or not self.name:
             return
         try:
             start = self.angle
-            t0 = time.time()
-            while True:
-                t = (time.time() - t0) / max(seconds, 0.5)
-                if t >= 1 or (stop is not None and stop.is_set()):
-                    break
-                ease = t * t * (3 - 2 * t)
-                self._tp(*shot(origin, size, start + sweep * ease, closeness))
-                time.sleep(TICK)
-            self.angle = start + sweep
+            # Ограничиваем угловую скорость: короткая стройка не ускоряет облёт.
+            sweep = math.copysign(min(abs(sweep), self.speed * seconds), sweep)
+            for t in self._frames(seconds, stop):
+                self.angle = start + sweep * t
+                self._tp(*shot(origin, size, self.angle, closeness))
         except Exception:
             pass
 
@@ -187,7 +235,7 @@ class Camera:
                     'components:{"minecraft:fireworks":{explosions:[{shape:"large_ball",'
                     f"colors:[I;{colors}],fade_colors:[I;16777215],has_trail:1b}}],"
                     "flight_duration:1}}}}")
-            self.orbit(origin, size, hold, sweep=25.0, closeness=1.05)
+            self.orbit(origin, size, hold, sweep=25.0, closeness=1.0)
         except Exception:
             pass
         finally:

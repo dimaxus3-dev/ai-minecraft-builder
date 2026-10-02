@@ -60,16 +60,40 @@ def _fetch(url: str, data: bytes | None = None, timeout: float = 25.0):
         return json.load(r)
 
 
+def languages_for(query: str) -> str:
+    """Какими языками просить названия у карты. Nominatim отдаёт `display_name` на одном
+    языке, и для русского запроса он приходил по-английски: проверка «нашли то же самое»
+    по корням слов не срабатывала, и всё здание терялось. Просим оба языка сразу."""
+    low = query.lower()
+    if re.search("[іїєґ]", low):
+        return "uk,ru,en"
+    if re.search("[әңғүұқөһ]", low):
+        return "kk,ru,en"
+    if re.search("[а-я]", low):
+        return "ru,en"
+    return "en"
+
+
+def _names_of(r: dict) -> str:
+    """Все названия найденного в одну строку: и `display_name`, и все `name:*` из
+    namedetails. Так русский запрос узнаёт себя в английском здании и наоборот."""
+    parts = [str(r.get("display_name") or ""), str(r.get("name") or "")]
+    details = r.get("namedetails")
+    if isinstance(details, dict):
+        parts += [str(v) for v in details.values()]
+    return " | ".join(parts).lower()
+
+
 def geocode(query: str) -> dict | None:
     """Первое подходящее здание по названию: way или relation (у точки нет контура)."""
     url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(
-        {"q": query, "format": "jsonv2", "limit": 10})
+        {"q": query, "format": "jsonv2", "limit": 10, "namedetails": 1,
+         "accept-language": languages_for(query)})
     stems = [w[:5] for w in re.findall(r"\w{4,}", query.lower())]
     for r in _fetch(url, timeout=10):
         cat = r.get("category") or r.get("class")
         if r.get("osm_type") in ("way", "relation") and cat in OK_CATEGORIES:
-            name = (r.get("display_name") or "").lower()
-            if not stems or any(s in name for s in stems):      # найденное должно быть про то же
+            if not stems or any(s in _names_of(r) for s in stems):   # найденное должно быть про то же
                 return r
     return None
 
