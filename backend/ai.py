@@ -59,6 +59,20 @@ class LLMError(RuntimeError):
     """Модель не ответила или не смогла выдать валидную программу."""
 
 
+class AuthError(LLMError):
+    """Провайдер отказал по ключу (401/403). Это не «модель задумалась», а поломка
+    настройки: повторять её на каждом запросе бессмысленно."""
+
+
+# Модель, отказавшая по ключу, уходит в простой: иначе каждый запрос в зале
+# заново ждал минуту, чтобы узнать то же самое.
+_COOLDOWN: dict[str, float] = {}
+
+
+def _cooldown_left(model: str) -> float:
+    return max(0.0, _COOLDOWN.get(model, 0.0) - time.time())
+
+
 # --- промпт --------------------------------------------------------------
 
 # Два примера: учат ставить силуэт раньше деталей и вырезать окна блоком air.
@@ -227,6 +241,8 @@ def _chat(messages: list[dict], model: str, base_url: str, api_key: str,
         },
         timeout=timeout,
     )
+    if response.status_code in (401, 403):
+        raise AuthError(f"{model}: HTTP {response.status_code} {response.text[:200]}")
     if response.status_code != 200:
         raise LLMError(f"{model}: HTTP {response.status_code} {response.text[:200]}")
     choice = response.json()["choices"][0]
@@ -437,6 +453,15 @@ def _race(chain: list[str], hedge: float, call) -> BuildProgram:
     t0 = time.time()
     launched = pending = 0
     last_start = 0.0
+    rest = float(os.getenv("LLM_AUTH_COOLDOWN", 120))
+
+    ready = [m for m in chain if not _cooldown_left(m)]
+    if not ready:
+        # ключ не принят ни одной моделью: ждать по минуте на каждом запросе незачем,
+        # пусть модератор сразу видит причину
+        raise AuthError("провайдер не принял ключ (проверь NVIDIA_API_KEY); "
+                        f"повтор через {min(_cooldown_left(m) for m in chain):.0f} с")
+    chain = ready
 
     def run(name: str, started: float) -> None:
         try:
@@ -463,6 +488,9 @@ def _race(chain: list[str], hedge: float, call) -> BuildProgram:
             return program
         log.info("%s не справилась за %.0f с: %s", name, time.time() - started,
                  str(err)[:120])
+        if isinstance(err, AuthError):
+            _COOLDOWN[name] = time.time() + rest
+            log.warning("%s отключена на %.0f с: провайдер не принял ключ", name, rest)
         errors.append(f"{name}: {str(err)[:200]}")
         if pending == 0 and launched == len(chain):
             raise LLMError("ни одна модель не справилась: " + " | ".join(errors))

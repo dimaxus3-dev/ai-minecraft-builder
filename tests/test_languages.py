@@ -49,3 +49,39 @@ class LanguageTests(unittest.TestCase):
         names = osm._names_of(found)
         self.assertIn("эмпайр", names)
         self.assertIn("empire", names)
+
+
+class CooldownTests(unittest.TestCase):
+    """Отказ по ключу не должен стоить минуту на каждом запросе."""
+
+    def setUp(self):
+        from backend import ai
+        self.ai = ai
+        ai._COOLDOWN.clear()
+        self.addCleanup(ai._COOLDOWN.clear)
+
+    def test_модель_с_плохим_ключом_уходит_в_простой(self):
+        calls = []
+
+        def call(name):
+            calls.append(name)
+            raise self.ai.AuthError(f"{name}: HTTP 403")
+
+        with self.assertRaises(self.ai.LLMError):
+            self.ai._race(["a", "b"], 0.0, call)
+        self.assertEqual(sorted(calls), ["a", "b"])
+        self.assertGreater(self.ai._cooldown_left("a"), 0)
+
+        # второй запрос не ждёт провайдера вовсе
+        calls.clear()
+        with self.assertRaises(self.ai.AuthError):
+            self.ai._race(["a", "b"], 0.0, call)
+        self.assertEqual(calls, [])
+
+    def test_обычная_ошибка_модель_не_отключает(self):
+        def call(name):
+            raise self.ai.LLMError(f"{name}: битый JSON")
+
+        with self.assertRaises(self.ai.LLMError):
+            self.ai._race(["a"], 0.0, call)
+        self.assertEqual(self.ai._cooldown_left("a"), 0)
