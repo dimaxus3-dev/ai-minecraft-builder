@@ -1,0 +1,353 @@
+{
+  "name": "Дракон",
+  "size": [
+    30,
+    18,
+    20
+  ],
+  "parts": [
+    {
+      "block": "green_concrete",
+      "type": "box",
+      "from": [
+        8,
+        3,
+        7
+      ],
+      "to": [
+        20,
+        8,
+        13
+      ]
+    },
+    {
+      "block": "lime_concrete",
+      "type": "box",
+      "from": [
+        9,
+        3,
+        8
+      ],
+      "to": [
+        19,
+        5,
+        12
+      ]
+    },
+    {
+      "block": "green_concrete",
+      "type": "line",
+      "from": [
+        20,
+        6,
+        10
+      ],
+      "to": [
+        25,
+        11,
+        10
+      ],
+      "thickness": 3
+    },
+    {
+      "block": "green_concrete",
+      "type": "box",
+      "from": [
+        24,
+        10,
+        7
+      ],
+      "to": [
+        29,
+        14,
+        13
+      ]
+    },
+    {
+      "block": "lime_concrete",
+      "type": "box",
+      "from": [
+        27,
+        11,
+        8
+      ],
+      "to": [
+        30,
+        13,
+        12
+      ]
+    },
+    {
+      "block": "gold_block",
+      "type": "box",
+      "from": [
+        25,
+        14,
+        8
+      ],
+      "to": [
+        26,
+        16,
+        9
+      ]
+    },
+    {
+      "block": "gold_block",
+      "type": "box",
+      "from": [
+        25,
+        14,
+        11
+      ],
+      "to": [
+        26,
+        16,
+        12
+      ]
+    },
+    {
+      "block": "red_concrete",
+      "type": "box",
+      "from": [
+        28,
+        12,
+        7
+      ],
+      "to": [
+        29,
+        13,
+        7
+      ]
+    },
+    {
+      "block": "red_concrete",
+      "type": "box",
+      "from": [
+        28,
+        12,
+        13
+      ],
+      "to": [
+        29,
+        13,
+        13
+      ]
+    },
+    {
+      "block": "green_concrete",
+      "type": "line",
+      "from": [
+        8,
+        5,
+        10
+      ],
+      "to": [
+        1,
+        2,
+        10
+      ],
+      "thickness": 2
+    },
+    {
+      "block": "lime_concrete",
+      "type": "box",
+      "from": [
+        0,
+        2,
+        9
+      ],
+      "to": [
+        2,
+        4,
+        11
+      ]
+    },
+    {
+      "block": "green_concrete",
+      "type": "box",
+      "from": [
+        10,
+        0,
+        7
+      ],
+      "to": [
+        12,
+        3,
+        9
+      ]
+    },
+    {
+      "block": "green_concrete",
+      "type": "box",
+      "from": [
+        16,
+        0,
+        7
+      ],
+      "to": [
+        18,
+        3,
+        9
+      ]
+    },
+    {
+      "block": "green_concrete",
+      "type": "box",
+      "from": [
+        10,
+        0,
+        11
+      ],
+      "to": [
+        12,
+        3,
+        13
+      ]
+    },
+    {
+      "block": "green_concrete",
+      "type": "box",
+      "from": [
+        16,
+        0,
+        11
+      ],
+      "to": [
+        18,
+        3,
+        13
+      ]
+    },
+    {
+      "block": "dark_oak_log",
+      "type": "line",
+      "from": [
+        11,
+        8,
+        8
+      ],
+      "to": [
+        6,
+        16,
+        4
+      ],
+      "thickness": 1
+    },
+    {
+      "block": "dark_oak_log",
+      "type": "line",
+      "from": [
+        11,
+        8,
+        12
+      ],
+      "to": [
+        6,
+        16,
+        16
+      ],
+      "thickness": 1
+    },
+    {
+      "block": "red_terracotta",
+      "type": "box",
+      "from": [
+        6,
+        12,
+        3
+      ],
+      "to": [
+        11,
+        16,
+        7
+      ]
+    },
+    {
+      "block": "red_terracotta",
+      "type": "box",
+      "from": [
+        6,
+        12,
+        13
+      ],
+      "to": [
+        11,
+        16,
+        17
+      ]
+    },
+    {
+      "block": "dark_oak_log",
+      "type": "line",
+      "from": [
+        17,
+        8,
+        8
+      ],
+      "to": [
+        13,
+        15,
+        3
+      ],
+      "thickness": 1
+    },
+    {
+      "block": "dark_oak_log",
+      "type": "line",
+      "from": [
+        17,
+        8,
+        12
+      ],
+      "to": [
+        13,
+        15,
+        17
+      ],
+      "thickness": 1
+    },
+    {
+      "block": "red_terracotta",
+      "type": "box",
+      "from": [
+        13,
+        11,
+        2
+      ],
+      "to": [
+        17,
+        15,
+        7
+      ]
+    },
+    {
+      "block": "red_terracotta",
+      "type": "box",
+      "from": [
+        13,
+        11,
+        13
+      ],
+      "to": [
+        17,
+        15,
+        18
+      ]
+    },
+    {
+      "block": "lime_concrete",
+      "type": "line",
+      "from": [
+        9,
+        8,
+        10
+      ],
+      "to": [
+        19,
+        10,
+        10
+      ],
+      "thickness": 1
+    }
+  ]
+}

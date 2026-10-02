@@ -1,0 +1,33 @@
+{
+  "name": "Маяк",
+  "size": [13, 35, 13],
+  "parts": [
+    {"type": "cylinder", "center": [6, 0, 6], "radius": 6, "height": 2,
+     "block": "stone_bricks"},
+    {"type": "cylinder", "center": [6, 2, 6], "radius": 5, "height": 20,
+     "hollow": true, "block": "white_concrete"},
+    {"type": "cylinder", "center": [6, 5, 6], "radius": 5, "height": 3,
+     "hollow": true, "block": "red_concrete"},
+    {"type": "cylinder", "center": [6, 11, 6], "radius": 5, "height": 3,
+     "hollow": true, "block": "red_concrete"},
+    {"type": "cylinder", "center": [6, 17, 6], "radius": 5, "height": 3,
+     "hollow": true, "block": "red_concrete"},
+    {"type": "box", "from": [5, 2, 1], "to": [7, 5, 1], "block": "air"},
+
+    {"type": "cylinder", "center": [6, 22, 6], "radius": 6, "height": 1,
+     "block": "gray_concrete"},
+    {"type": "cylinder", "center": [6, 23, 6], "radius": 6, "height": 1,
+     "hollow": true, "block": "iron_block"},
+    {"type": "cylinder", "center": [6, 23, 6], "radius": 4, "height": 4,
+     "hollow": true, "block": "glass"},
+    {"type": "sphere", "center": [6, 25, 6], "radius": 2,
+     "block": "glowstone"},
+
+    {"type": "cylinder", "center": [6, 27, 6], "radius": 5, "height": 1,
+     "block": "red_concrete"},
+    {"type": "roof", "from": [2, 28, 2], "to": [10, 28, 10],
+     "style": "pyramid", "block": "red_concrete"},
+    {"type": "line", "from": [6, 31, 6], "to": [6, 34, 6],
+     "block": "iron_block"}
+  ]
+}

@@ -1,0 +1,211 @@
+{
+  "name": "Golden Gate Bridge",
+  "size": [
+    80,
+    26,
+    10
+  ],
+  "parts": [
+    {
+      "block": "orange_concrete",
+      "type": "box",
+      "from": [
+        0,
+        5,
+        0
+      ],
+      "to": [
+        80,
+        6,
+        10
+      ]
+    },
+    {
+      "block": "orange_concrete",
+      "type": "box",
+      "from": [
+        0,
+        6,
+        0
+      ],
+      "to": [
+        4,
+        26,
+        10
+      ]
+    },
+    {
+      "block": "orange_concrete",
+      "type": "box",
+      "from": [
+        76,
+        6,
+        0
+      ],
+      "to": [
+        80,
+        26,
+        10
+      ]
+    },
+    {
+      "block": "white_concrete",
+      "type": "line",
+      "from": [
+        0,
+        0,
+        5
+      ],
+      "to": [
+        4,
+        26,
+        5
+      ],
+      "thickness": 2
+    },
+    {
+      "block": "white_concrete",
+      "type": "line",
+      "from": [
+        4,
+        26,
+        5
+      ],
+      "to": [
+        76,
+        26,
+        5
+      ],
+      "thickness": 2
+    },
+    {
+      "block": "white_concrete",
+      "type": "line",
+      "from": [
+        76,
+        26,
+        5
+      ],
+      "to": [
+        80,
+        0,
+        5
+      ],
+      "thickness": 2
+    },
+    {
+      "block": "white_concrete",
+      "type": "box",
+      "from": [
+        0,
+        6,
+        5
+      ],
+      "to": [
+        80,
+        6,
+        5
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        10,
+        6,
+        4
+      ],
+      "to": [
+        10,
+        8,
+        6
+      ]
+    },
+    {
+      "block": "glowstone",
+      "type": "sphere",
+      "center": [
+        10,
+        8,
+        5
+      ],
+      "radius": 1,
+      "hollow": false
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        30,
+        6,
+        4
+      ],
+      "to": [
+        30,
+        8,
+        6
+      ]
+    },
+    {
+      "block": "glowstone",
+      "type": "sphere",
+      "center": [
+        30,
+        8,
+        5
+      ],
+      "radius": 1,
+      "hollow": false
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        50,
+        6,
+        4
+      ],
+      "to": [
+        50,
+        8,
+        6
+      ]
+    },
+    {
+      "block": "glowstone",
+      "type": "sphere",
+      "center": [
+        50,
+        8,
+        5
+      ],
+      "radius": 1,
+      "hollow": false
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        70,
+        6,
+        4
+      ],
+      "to": [
+        70,
+        8,
+        6
+      ]
+    },
+    {
+      "block": "glowstone",
+      "type": "sphere",
+      "center": [
+        70,
+        8,
+        5
+      ],
+      "radius": 1,
+      "hollow": false
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# Сервер: сайт, очередь, вызовы LLM. gdpc здесь не нужен —
+# используются только builder/schema.py и builder/blocks.py (чистый Python).
+# Версии сняты с рабочего venv (Python 3.14.7).
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+requests==2.34.2
+python-dotenv==1.2.4
+websockets==17.1
+python-multipart==0.0.32

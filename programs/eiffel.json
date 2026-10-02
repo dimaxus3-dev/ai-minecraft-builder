@@ -1,0 +1,281 @@
+{
+  "name": "Эйфелева башня",
+  "size": [
+    21,
+    38,
+    21
+  ],
+  "parts": [
+    {
+      "block": "stone_bricks",
+      "type": "box",
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        20,
+        0,
+        20
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        1,
+        1,
+        1
+      ],
+      "to": [
+        4,
+        8,
+        4
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        16,
+        1,
+        1
+      ],
+      "to": [
+        19,
+        8,
+        4
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        1,
+        1,
+        16
+      ],
+      "to": [
+        4,
+        8,
+        19
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        16,
+        1,
+        16
+      ],
+      "to": [
+        19,
+        8,
+        19
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "arch",
+      "from": [
+        1,
+        1,
+        10
+      ],
+      "to": [
+        19,
+        1,
+        10
+      ],
+      "height": 6,
+      "thickness": 2
+    },
+    {
+      "block": "iron_block",
+      "type": "arch",
+      "from": [
+        10,
+        1,
+        1
+      ],
+      "to": [
+        10,
+        1,
+        19
+      ],
+      "height": 6,
+      "thickness": 2
+    },
+    {
+      "block": "dark_oak_planks",
+      "type": "box",
+      "from": [
+        2,
+        8,
+        2
+      ],
+      "to": [
+        18,
+        9,
+        18
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        4,
+        10,
+        4
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "block": "air",
+      "type": "box",
+      "from": [
+        6,
+        10,
+        6
+      ],
+      "to": [
+        14,
+        15,
+        14
+      ]
+    },
+    {
+      "block": "dark_oak_planks",
+      "type": "box",
+      "from": [
+        5,
+        17,
+        5
+      ],
+      "to": [
+        15,
+        18,
+        15
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        7,
+        19,
+        7
+      ],
+      "to": [
+        13,
+        27,
+        13
+      ]
+    },
+    {
+      "block": "air",
+      "type": "box",
+      "from": [
+        9,
+        19,
+        9
+      ],
+      "to": [
+        11,
+        26,
+        11
+      ]
+    },
+    {
+      "block": "dark_oak_planks",
+      "type": "box",
+      "from": [
+        6,
+        28,
+        6
+      ],
+      "to": [
+        14,
+        29,
+        14
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        8,
+        30,
+        8
+      ],
+      "to": [
+        12,
+        34,
+        12
+      ]
+    },
+    {
+      "block": "glass",
+      "type": "box",
+      "from": [
+        9,
+        30,
+        9
+      ],
+      "to": [
+        11,
+        33,
+        11
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "box",
+      "from": [
+        9,
+        35,
+        9
+      ],
+      "to": [
+        11,
+        36,
+        11
+      ]
+    },
+    {
+      "block": "iron_block",
+      "type": "line",
+      "from": [
+        10,
+        37,
+        10
+      ],
+      "to": [
+        10,
+        38,
+        10
+      ],
+      "thickness": 1
+    },
+    {
+      "block": "redstone_lamp",
+      "type": "box",
+      "from": [
+        10,
+        38,
+        10
+      ],
+      "to": [
+        10,
+        38,
+        10
+      ]
+    }
+  ]
+}

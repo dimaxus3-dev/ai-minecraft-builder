@@ -1,0 +1,30 @@
+{
+  "name": "Площадь (все примитивы)",
+  "size": [40, 24, 24],
+  "parts": [
+    {"type": "box", "from": [0, 0, 0], "to": [39, 0, 23],
+     "block": "light_gray_concrete"},
+
+    {"type": "hollow_box", "from": [2, 1, 2], "to": [14, 8, 14],
+     "thickness": 1, "block": "oak_planks"},
+    {"type": "box", "from": [2, 4, 6], "to": [2, 6, 10], "block": "glass"},
+    {"type": "box", "from": [7, 1, 2], "to": [9, 4, 2], "block": "air"},
+    {"type": "roof", "from": [1, 9, 1], "to": [15, 9, 15],
+     "style": "gable", "block": "dark_oak_planks"},
+
+    {"type": "cylinder", "center": [24, 1, 8], "radius": 5, "height": 16,
+     "hollow": true, "block": "white_concrete"},
+    {"type": "cylinder", "center": [24, 17, 8], "radius": 6, "height": 1,
+     "block": "red_concrete"},
+    {"type": "sphere", "center": [24, 20, 8], "radius": 3,
+     "block": "glowstone"},
+
+    {"type": "arch", "from": [32, 1, 2], "to": [32, 1, 20], "height": 12,
+     "thickness": 2, "block": "stone_bricks"},
+
+    {"type": "line", "from": [37, 1, 12], "to": [37, 15, 12],
+     "block": "iron_block"},
+    {"type": "line", "from": [37, 15, 12], "to": [33, 13, 12],
+     "block": "red_wool"}
+  ]
+}

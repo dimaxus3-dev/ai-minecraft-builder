@@ -1,0 +1,8 @@
+# Воркер-строитель (ноутбук с Minecraft).
+# Версии сняты с рабочего venv (Python 3.14.7).
+gdpc==8.1.0
+pydantic==2.13.5
+websockets==17.1
+python-dotenv==1.2.4
+qrcode==8.2
+pillow==12.3.0

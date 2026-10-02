@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Модерация — AI Minecraft Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-neutral-950 text-neutral-100 font-sans">
+
+<header class="sticky top-0 z-10 bg-neutral-900/95 backdrop-blur border-b border-neutral-800">
+  <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
+    <h1 class="font-semibold">Модерация</h1>
+    <span id="worker" class="text-xs px-2 py-1 rounded-full bg-neutral-800">воркер: …</span>
+    <span id="stats" class="text-xs text-neutral-400 ml-auto"></span>
+    <label class="text-xs flex items-center gap-2 cursor-pointer select-none">
+      <input id="auto" type="checkbox" class="accent-emerald-500">
+      одобрять сразу
+    </label>
+  </div>
+  <div id="live" class="max-w-3xl mx-auto px-4 pb-3 hidden">
+    <div class="text-xs text-neutral-400 mb-1" id="liveText"></div>
+    <div class="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+      <div id="bar" class="h-full bg-emerald-500 transition-all duration-200" style="width:0%"></div>
+    </div>
+  </div>
+</header>
+
+<main id="list" class="max-w-3xl mx-auto px-4 py-4 space-y-3"></main>
+
+<script>
+// Секрет берём из адреса страницы: она открыта как /admin-<секрет>
+const SECRET = location.pathname.replace(/^\/admin-/, "");
+const rows = new Map();          // id -> объект запроса
+let autoApprove = false;
+
+const STATUS = {
+  pending:    ["ждёт проверки", "bg-amber-500/15 text-amber-300"],
+  approved:   ["одобрено",      "bg-sky-500/15 text-sky-300"],
+  generating: ["придумываем",   "bg-violet-500/15 text-violet-300"],
+  building:   ["строится",      "bg-emerald-500/15 text-emerald-300"],
+  done:       ["готово",        "bg-neutral-700 text-neutral-300"],
+  rejected:   ["отклонено",     "bg-neutral-800 text-neutral-500"],
+  failed:     ["не вышло",      "bg-red-500/15 text-red-300"],
+};
+
+const esc = (s) => String(s ?? "").replace(/[<>&"]/g,
+  (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+
+async function act(id, what, body) {
+  const r = await fetch(`/api/admin/${SECRET}/${id}/${what}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  if (!r.ok) alert(`Не получилось: ${r.status}`);
+}
+
+function card(q) {
+  const [label, colour] = STATUS[q.status] || [q.status, "bg-neutral-800"];
+  const waiting = q.status === "pending";
+  const when = new Date(q.created_at).toLocaleTimeString("ru-RU",
+    { hour: "2-digit", minute: "2-digit" });
+  return `
+  <article class="rounded-xl border p-4 ${waiting
+      ? "border-amber-500/40 bg-neutral-900" : "border-neutral-800 bg-neutral-900/50"}">
+    <div class="flex items-center gap-2 text-xs text-neutral-500 mb-2">
+      <span>#${q.id}</span><span>${when}</span>
+      ${q.author ? `<span>· ${esc(q.author)}</span>` : ""}
+      <span class="ml-auto px-2 py-0.5 rounded-full ${colour}">${label}</span>
+    </div>
+
+    ${waiting
+      ? `<input value="${esc(q.text)}" data-edit="${q.id}"
+             class="w-full bg-neutral-950 border border-neutral-700 rounded-lg
+                    px-3 py-2 mb-3 text-base">`
+      : `<p class="mb-2 text-lg">${esc(q.text)}</p>`}
+
+    ${q.error ? `<p class="text-xs text-red-400 mb-2">${esc(q.error)}</p>` : ""}
+    ${q.blocks ? `<p class="text-xs text-neutral-500">${q.blocks} блоков
+         ${q.origin ? `· участок ${q.origin.join(", ")}` : ""}</p>` : ""}
+
+    ${waiting ? `
+      <div class="flex gap-2">
+        <button data-ok="${q.id}" class="flex-1 py-3 rounded-lg bg-emerald-600
+                hover:bg-emerald-500 font-medium">✅ Построить</button>
+        <button data-no="${q.id}" class="px-5 py-3 rounded-lg bg-neutral-800
+                hover:bg-neutral-700">❌</button>
+      </div>` : ""}
+  </article>`;
+}
+
+function render() {
+  const all = [...rows.values()].sort((a, b) => b.id - a.id);
+  document.getElementById("list").innerHTML = all.map(card).join("") ||
+    `<p class="text-neutral-500 text-center py-12">Запросов пока нет</p>`;
+}
+
+// Одобрение отправляем вместе с правкой текста, если его меняли
+document.addEventListener("click", async (e) => {
+  const ok = e.target.closest("[data-ok]"), no = e.target.closest("[data-no]");
+  if (ok) {
+    const id = ok.dataset.ok;
+    const field = document.querySelector(`[data-edit="${id}"]`);
+    const original = rows.get(Number(id))?.text;
+    if (field && field.value.trim() && field.value !== original) {
+      await act(id, "text", { text: field.value.trim() });
+    }
+    await act(id, "approve");
+  }
+  if (no) await act(no.dataset.no, "reject");
+});
+
+document.getElementById("auto").addEventListener("change", (e) => {
+  autoApprove = e.target.checked;
+});
+
+function apply(data) {
+  if (data.requests) { rows.clear(); data.requests.forEach((q) => rows.set(q.id, q)); }
+  if (data.request) {
+    rows.set(data.request.id, data.request);
+    // режим показа: одобряем всё подряд, чтобы не отвлекаться на судей
+    if (autoApprove && data.request.status === "pending") {
+      act(data.request.id, "approve");
+    }
+  }
+  if (data.stats) {
+    document.getElementById("stats").textContent =
+      `построено ${data.stats.built} · в очереди ${data.stats.waiting} · ` +
+      `${data.stats.blocks} блоков`;
+  }
+  if ("worker_online" in data) {
+    const el = document.getElementById("worker");
+    el.textContent = data.worker_online ? "воркер на связи" : "воркер отвалился";
+    el.className = "text-xs px-2 py-1 rounded-full " + (data.worker_online
+      ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300");
+  }
+  render();
+}
+
+function progress(data) {
+  const box = document.getElementById("live");
+  const row = rows.get(data.id);
+  box.classList.remove("hidden");
+  document.getElementById("liveText").textContent =
+    `#${data.id} ${row ? row.text : ""} — слой ${data.done} из ${data.total}`;
+  document.getElementById("bar").style.width =
+    `${Math.round((data.done / data.total) * 100)}%`;
+  if (data.done >= data.total) setTimeout(() => box.classList.add("hidden"), 2500);
+}
+
+// Соединение с автоматическим переподключением: страница висит открытой весь день
+function connect() {
+  const ws = new WebSocket(location.origin.replace("http", "ws") + "/ws/admin");
+  ws.onmessage = (m) => {
+    const data = JSON.parse(m.data);
+    if (data.type === "progress") progress(data); else apply(data);
+  };
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+connect();
+</script>
+</body>
+</html>
