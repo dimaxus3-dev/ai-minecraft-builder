@@ -261,6 +261,12 @@ def page(name: str, fallback: str) -> HTMLResponse:
     return HTMLResponse(fallback)
 
 
+def public_url(request: Request) -> str:
+    """Адрес, который попадёт в QR. PUBLIC_URL важнее всего: иначе на экране зала
+    окажется localhost, и телефоны по коду никуда не придут."""
+    return (os.getenv("PUBLIC_URL") or "").strip().rstrip("/") or str(request.base_url).rstrip("/")
+
+
 FALLBACK_INDEX = """<!doctype html><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Что построить?</title>
@@ -296,6 +302,16 @@ new WebSocket(location.origin.replace('http','ws')+'/ws/screen')
     if(d.request)q.textContent='#'+d.request.id+' '+d.request.text+
       ' → '+d.request.status;};
 </script>"""
+
+
+@app.get("/qr", response_class=HTMLResponse)
+async def qr_poster(request: Request) -> HTMLResponse:
+    """Печатный плакат с QR на сайт: повесить на стол, показать на экране, раздать.
+    Адрес подставляем на сервере, чтобы плакат нельзя было напечатать с localhost."""
+    html = (ROOT / "backend" / "pages" / "qr.html").read_text(encoding="utf-8")
+    site = public_url(request).replace('"', "%22")
+    return HTMLResponse(html.replace("<script>\n  // Адрес берём",
+                                     f'<script data-site="{site}">\n  // Адрес берём'))
 
 
 @app.get("/", response_class=HTMLResponse)
