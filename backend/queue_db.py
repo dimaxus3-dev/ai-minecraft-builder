@@ -115,6 +115,13 @@ def set_program(request_id: int, program: dict) -> dict | None:
     return get(request_id)
 
 
+def clear_program(request_id: int) -> dict | None:
+    """Чертёж больше не подходит к тексту (его поправили) — забываем его."""
+    _run("UPDATE requests SET program='', updated_at=? WHERE id=?",
+         (now(), request_id))
+    return get(request_id)
+
+
 def set_result(request_id: int, origin: list[int], blocks: int) -> dict | None:
     """Итог стройки: куда поставили и сколько блоков."""
     _run("UPDATE requests SET origin=?, blocks=?, updated_at=? WHERE id=?",

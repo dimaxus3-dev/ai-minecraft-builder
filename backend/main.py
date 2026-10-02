@@ -114,17 +114,71 @@ async def announce(request_row: dict | None = None, **extra) -> None:
 
 # --- обработка очереди ---------------------------------------------------
 
+# Чертёж готовим сразу при отправке запроса, пока он ждёт одобрения. Тогда
+# после «✅» постройка стартует мгновенно, а не через полминуты ожидания LLM.
+pregen: dict[int, asyncio.Task] = {}
+pregen_slots = asyncio.Semaphore(3)       # не заваливаем API, если пишут разом
+
+
+async def pregenerate(request_id: int, text: str) -> None:
+    """Фоновая генерация чертежа. Ошибки молча глотаем: после одобрения
+    run_job всё равно сгенерирует заново."""
+    try:
+        async with pregen_slots:
+            program = await asyncio.wait_for(
+                asyncio.to_thread(ai.generate, text), timeout=GENERATE_TIMEOUT)
+        current = db.get(request_id)
+        # кладём чертёж, только если текст не меняли и запрос не отклонили
+        if current and current["text"] == text and current["status"] != db.REJECTED:
+            db.set_program(request_id, program.model_dump(by_alias=True))
+            log.info("#%s: чертёж готов заранее (%s)", request_id, program.name)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        log.info("#%s: предгенерация не вышла (%s), сделаем после одобрения",
+                 request_id, type(e).__name__)
+    finally:
+        if pregen.get(request_id) is asyncio.current_task():
+            pregen.pop(request_id, None)
+
+
+def start_pregen(request_id: int, text: str) -> None:
+    pregen[request_id] = asyncio.create_task(pregenerate(request_id, text))
+
+
+def cancel_pregen(request_id: int) -> None:
+    task = pregen.pop(request_id, None)
+    if task and not task.done():
+        task.cancel()
+
+
+async def get_program(row: dict) -> dict:
+    """Чертёж запроса: готовый, из идущей предгенерации или заново."""
+    request_id = row["id"]
+    if row.get("program"):
+        return row["program"]
+    task = pregen.get(request_id)
+    if task and not task.done():
+        await asyncio.shield(task)        # сама ошибок не бросает
+        fresh = db.get(request_id)
+        if fresh and fresh.get("program"):
+            return fresh["program"]
+    program = await asyncio.to_thread(ai.generate, row["text"])
+    payload = program.model_dump(by_alias=True)
+    db.set_program(request_id, payload)
+    return payload
+
+
 async def run_job(row: dict) -> None:
     """Один запрос: LLM -> воркер -> ждём результат."""
     request_id = row["id"]
     worker.busy = True
     try:
-        await announce(db.set_status(request_id, db.GENERATING))
+        if not row.get("program"):          # заготовки нет — придётся ждать LLM
+            await announce(db.set_status(request_id, db.GENERATING))
         try:
-            program = await asyncio.wait_for(
-                asyncio.to_thread(ai.generate, row["text"]),
-                timeout=GENERATE_TIMEOUT,
-            )
+            payload = await asyncio.wait_for(get_program(row),
+                                             timeout=GENERATE_TIMEOUT)
         except asyncio.TimeoutError:
             reason = f"LLM не ответил за {GENERATE_TIMEOUT:.0f} с"
             log.warning("#%s: %s", request_id, reason)
@@ -136,8 +190,6 @@ async def run_job(row: dict) -> None:
                                          f"{type(e).__name__}: {e}"))
             return
 
-        payload = program.model_dump(by_alias=True)
-        db.set_program(request_id, payload)
         if not await worker.send({"type": "build", "id": request_id,
                                   "text": row["text"], "program": payload}):
             # воркер отвалился между проверкой и отправкой — вернём в очередь
@@ -273,6 +325,7 @@ async def api_request(request: Request) -> JSONResponse:
                     429, f"Подожди {int(RATE_LIMIT - age)} сек перед новым запросом")
 
     row = db.add(text, author=(body.get("author") or "")[:40], ip=ip)
+    start_pregen(row["id"], row["text"])
     await announce(row)
     return JSONResponse(row)
 
@@ -296,6 +349,8 @@ async def api_approve(secret: str, request_id: int) -> dict:
     row = db.get(request_id)
     if not row:
         raise HTTPException(404, "нет такого запроса")
+    if row["status"] not in (db.PENDING, db.FAILED, db.REJECTED):
+        return row        # уже одобрен или строится: повторный клик ничего не ломает
     row = db.set_status(request_id, db.APPROVED)
     await announce(row)
     return row                                        # type: ignore[return-value]
@@ -304,6 +359,7 @@ async def api_approve(secret: str, request_id: int) -> dict:
 @app.post("/api/admin/{secret}/{request_id}/reject")
 async def api_reject(secret: str, request_id: int) -> dict:
     check_secret(secret)
+    cancel_pregen(request_id)
     row = db.set_status(request_id, db.REJECTED)
     if not row:
         raise HTTPException(404, "нет такого запроса")
@@ -319,6 +375,10 @@ async def api_edit(secret: str, request_id: int, request: Request) -> dict:
     row = db.update_text(request_id, (body.get("text") or "").strip())
     if not row:
         raise HTTPException(404, "нет такого запроса")
+    if row["status"] == db.PENDING:
+        cancel_pregen(request_id)
+        row = db.clear_program(request_id)
+        start_pregen(request_id, row["text"])             # type: ignore[index]
     await announce(row)
     return row
 
