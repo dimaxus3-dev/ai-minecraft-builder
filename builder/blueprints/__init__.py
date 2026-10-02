@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -143,6 +144,34 @@ def _load() -> None:
          [("дерево",), ("дерева",), ("деревья",), ("tree",), ("баобаб",), ("baobab",),
           ("сакура",), ("sakura",), ("дубрав",)], T.tree,
          "huge tree: twisting trunk, branches, leaf crown, grass mound, mossy rocks"),
+        ("helicopter", "Helicopter", "Вертолёт",
+         [("вертолет",), ("вертолёт",), ("вертушк",), ("helicopter",), ("chopper",),
+          ("вертолёта",)], T.helicopter,
+         "helicopter on a pad: glazed cabin, tail boom, main and tail rotors, skids"),
+        ("submarine", "Submarine", "Подводная лодка",
+         [("подводн", "лодк"), ("субмарин",), ("submarine",), ("подлодк",), ("u-boat",)], T.submarine,
+         "submarine in water: cigar hull, conning tower with periscope, fins, propeller"),
+        ("bridge", "Arch bridge", "Мост",
+         [("мост",), ("мосты",), ("bridge",), ("виадук",), ("viaduct",), ("акведук",),
+          ("aqueduct",)], T.bridge,
+         "stone arch bridge over a river: piers, four arches, deck, railings, lanterns"),
+        ("mosque", "Mosque", "Мечеть",
+         [("мечет",), ("mosque",), ("масджид",), ("мінарет",), ("минарет",)], T.mosque,
+         "mosque: domed prayer hall, four minarets, arched portal, small domes, courtyard"),
+        ("obelisk", "Obelisk", "Обелиск",
+         [("обелиск",), ("obelisk",), ("стела",), ("stele",)], T.obelisk,
+         "obelisk on steps: tapering shaft, gilded pyramidion, fire bowls"),
+        ("triumphal_arch", "Triumphal arch", "Триумфальная арка",
+         [("триумфальн",), ("triumphal",), ("арка",), ("арку",), ("arc", "triomphe"),
+          ("ворота",)], T.triumphal_arch,
+         "triumphal arch: big vaulted opening, side passages, columns, cornice, quadriga on top"),
+        ("clock_tower", "Clock tower", "Часовая башня",
+         [("часов", "башн"), ("clock", "tower"), ("биг", "бен"), ("big", "ben"),
+          ("куранты",), ("clocktower",)], T.clock_tower,
+         "clock tower: tall shaft, belfry with four clock faces, pinnacles, tall spire with a lamp"),
+        ("igloo", "Igloo", "Иглу",
+         [("иглу",), ("igloo",), ("снежн", "дом"), ("ледян", "дом")], T.igloo,
+         "igloo: snow dome with ice courses, entrance tunnel, ice windows, campfire, snow drifts"),
     ):
         register(Entry(id_, en, ru, al, fn, about, tunable=True))
 
@@ -211,8 +240,12 @@ def params_for(id: str, request_text: str) -> dict:
 
 
 def title(id: str, request_text: str = "") -> str:
+    """Название постройки. По умолчанию английское: показ идёт на английском, даже
+    когда человек написал запрос по-русски. SHOW_LANG=ru возвращает прежнее поведение."""
     e = REGISTRY[id]
-    return e.title_ru if re.search("[а-яА-Я]", request_text) else e.title_en
+    if os.getenv("SHOW_LANG", "en").lower().startswith("ru") and re.search("[а-яА-Я]", request_text):
+        return e.title_ru
+    return e.title_en
 
 
 def listing() -> str:

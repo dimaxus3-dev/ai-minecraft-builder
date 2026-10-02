@@ -39,8 +39,9 @@ log = logging.getLogger("worker")
 RECONNECT_MIN, RECONNECT_MAX = 1.0, 15.0
 PROGRESS_EVERY = 0.4            # не чаще, чем раз в 0.4 с — незачем спамить
 BUILT_FILE = Path(os.getenv("BUILT_FILE", "data/built.json"))
-SOURCE_LABELS = {"blueprint": "готовый чертёж", "osm": "реальные данные карты OpenStreetMap",
-                 "model": "придумал ИИ"}
+# Надписи в игре — по-английски: судьи и зал читают экран, а не наш код.
+SOURCE_LABELS = {"blueprint": "hand-built blueprint", "osm": "real OpenStreetMap data",
+                 "model": "designed by AI"}
 
 _SHOW: "Show | None" = None
 
@@ -120,11 +121,11 @@ async def handle_build(ws, message: dict, city: City, editor, duration: float, s
         last_sent = now
         asyncio.run_coroutine_threadsafe(
             send(ws, {"type": "progress", "id": request_id, "done": done, "total": total}), loop)
-        cam.actionbar(f"Строится… {round(100 * done / total)}%")
+        cam.actionbar(f"Building… {round(100 * done / total)}%")
 
     label = SOURCE_LABELS.get(program.source, "")
     if program.source == "model" and program.model:
-        label = f"придумал ИИ: {program.model.split('/')[-1]}"
+        label = f"designed by AI: {program.model.split('/')[-1]}"
     await asyncio.to_thread(cam.begin, program.name, label or message.get("text", ""), origin, size)
     flight = None
     flight_stop = threading.Event()

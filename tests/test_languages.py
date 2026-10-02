@@ -27,9 +27,18 @@ class BlueprintMatchTests(unittest.TestCase):
         self.assertEqual(blueprints.match("замок"), "castle")
         self.assertIsNone(blueprints.match("розовый замок с драконом на крыше"))
 
-    def test_название_чертежа_на_языке_запроса(self):
-        self.assertEqual(blueprints.title("lighthouse", "маяк"), "Маяк")
+    def test_показ_идёт_на_английском(self):
+        # запрос может быть на любом языке, но в игре и на экране — английский
+        self.assertEqual(blueprints.title("lighthouse", "маяк"), "Lighthouse")
         self.assertEqual(blueprints.title("lighthouse", "lighthouse"), "Lighthouse")
+        self.assertEqual(blueprints.title("plane", "самолёт"), "Airplane")
+
+    def test_SHOW_LANG_возвращает_русские_названия(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"SHOW_LANG": "ru"}):
+            self.assertEqual(blueprints.title("lighthouse", "маяк"), "Маяк")
+            self.assertEqual(blueprints.title("lighthouse", "lighthouse"), "Lighthouse")
 
 
 class LanguageTests(unittest.TestCase):

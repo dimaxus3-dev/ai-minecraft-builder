@@ -191,7 +191,7 @@ class Camera:
                 self.transition(*shot(origin, size, self.angle), stop=stop)
                 if stop.is_set():
                     break
-                self._title(name, "построено сегодня в зале")
+                self._title(name, "built here today")
                 self.orbit(origin, size, 16.0, sweep=200.0, stop=stop)
                 i += 1
         except Exception:

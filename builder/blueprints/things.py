@@ -560,3 +560,321 @@ def stadium(main: str = "white_concrete", accent: str = "red_concrete",
         c.line((px, 0, pz), (px, h, pz), "iron_block", 1)
         c.box((px - 2, h, pz - 1), (px + 2, h + 2, pz + 1), "glowstone")
     return c.v
+
+
+# --- вторая партия: ещё техника и малые формы ------------------------------
+
+def helicopter(main: str = "green_concrete", accent: str = "black_concrete",
+               scale: float = 1.0) -> dict:
+    """Вертолёт на площадке: кабина со стеклом, хвостовая балка, два винта, полозья."""
+    c = Canvas()
+    L = max(26, round(40 * scale))
+    R = max(3, round(5 * scale))
+    cx, cy = R + max(14, round(20 * scale)), R + 4
+
+    c.cyl((cx, 0, round(L * 0.35)), max(10, round(14 * scale)), 1, "polished_blackstone")
+    for a in range(0, 360, 6):                                               # буква H на площадке
+        pass
+    c.box((cx - 4, 0, round(L * 0.35) - 5), (cx - 4, 0, round(L * 0.35) + 5), "white_concrete")
+    c.box((cx + 4, 0, round(L * 0.35) - 5), (cx + 4, 0, round(L * 0.35) + 5), "white_concrete")
+    c.box((cx - 4, 0, round(L * 0.35)), (cx + 4, 0, round(L * 0.35)), "white_concrete")
+
+    cab = round(L * 0.45)
+    _tube_z(c, cx, cy, 2, cab, lambda z: R * (0.55 + 0.45 * math.sin(math.pi * min(1, z / cab))), main)
+    for z in range(3, 7):                                                    # остекление кабины
+        for y in range(cy, cy + R - 1):
+            c.set(cx - round(R * 0.8), y, z, "light_blue_stained_glass")
+            c.set(cx + round(R * 0.8), y, z, "light_blue_stained_glass")
+            c.set(cx, y + 1, z - 1, "light_blue_stained_glass")
+    _tube_z(c, cx, cy + 1, cab, L, lambda z: max(1.4, R * 0.45 * (1 - (z - cab) / (L - cab) * 0.5)), main)
+
+    fin = max(6, round(9 * scale))                                           # киль
+    for y in range(fin):
+        c.box((cx, cy + 2 + y, L - 3 + y // 3), (cx, cy + 2 + y, L), accent)
+    for a in range(0, 360, 20):                                              # рулевой винт
+        r = math.radians(a)
+        c.set(cx + 1, cy + 4 + 4 * math.sin(r), L - 2 + 4 * math.cos(r), accent)
+
+    mast = cy + R + 2                                                        # мачта и несущий винт
+    c.box((cx - 1, cy + R - 1, round(L * 0.26)), (cx + 1, mast, round(L * 0.3)), accent)
+    blade = max(14, round(22 * scale))
+    for k in range(4):
+        a = math.radians(k * 90 + 12)
+        c.line((cx, mast + 1, round(L * 0.28)),
+               (cx + blade * math.cos(a), mast + 1, round(L * 0.28) + blade * math.sin(a)), accent, 1)
+    for side in (1, -1):                                                     # полозья
+        sx = cx + side * (R - 1)
+        c.box((sx, cy - R - 1, 4), (sx, cy - R - 1, cab - 2), "iron_block")
+        for z in (6, cab - 4):
+            c.box((sx, cy - R - 1, z), (sx, cy - R + 1, z), "iron_block")
+    return c.v
+
+
+def submarine(main: str = "black_concrete", accent: str = "yellow_concrete",
+              scale: float = 1.0) -> dict:
+    """Подводная лодка: сигарообразный корпус, рубка с перископом, винт, вода."""
+    c = Canvas()
+    L = max(40, round(64 * scale))
+    R = max(4, round(6 * scale))
+    cx, cy = R + 4, R + 2
+
+    c.box((0, 0, 0), (2 * cx, cy - 1, L + 6), "water")
+    nose, tail = L * 0.16, L * 0.82
+
+    def radius(z: float) -> float:
+        if z < nose:
+            return R * math.sqrt(max(0.06, z / nose))
+        if z > tail:
+            return R * max(0.3, 1 - (z - tail) / (L - tail) * 0.8)
+        return R
+
+    _tube_z(c, cx, cy, 0, L, radius, main)
+    for z in range(round(nose) + 2, round(tail), 6):                         # полоса по борту
+        c.set(cx + R, cy, z, accent)
+        c.set(cx - R, cy, z, accent)
+
+    tower = round(L * 0.36)                                                  # рубка
+    c.box((cx - 2, cy + R - 1, tower), (cx + 2, cy + R + max(5, round(7 * scale)), tower + round(L * 0.16)), main)
+    c.box((cx - 2, cy + R + max(5, round(7 * scale)), tower), (cx + 2, cy + R + max(5, round(7 * scale)),
+          tower + round(L * 0.16)), accent)
+    top = cy + R + max(5, round(7 * scale))
+    c.line((cx, top + 1, tower + 2), (cx, top + 5, tower + 2), "iron_bars", 1)       # перископ
+    c.set(cx, top + 6, tower + 2, "glowstone")
+    for side in (1, -1):                                                     # горизонтальные рули
+        c.box((cx + side * 3, cy + R - 2, tower + 2), (cx + side * 6, cy + R - 2, tower + 5), main)
+        c.box((cx + side * (R + 1), cy, L - 8), (cx + side * (R + 5), cy, L - 4), main)
+    c.box((cx, cy - R - 4, L - 8), (cx, cy + R + 4, L - 4), main)            # вертикальный руль
+    for k in range(5):                                                       # винт
+        a = math.radians(k * 72)
+        c.line((cx, cy, L + 1), (cx + 3 * math.cos(a), cy + 3 * math.sin(a), L + 2), accent, 1)
+    return c.v
+
+
+def bridge(main: str = "stone_bricks", accent: str = "polished_andesite",
+           scale: float = 1.0) -> dict:
+    """Арочный мост через реку: быки, арки, настил, перила и фонари."""
+    c = Canvas()
+    span = max(14, round(20 * scale))          # пролёт
+    n = 4                                      # сколько арок
+    L = span * n + 8
+    W = max(5, round(8 * scale))
+    deck = max(12, round(16 * scale))
+    cx = W + 3
+
+    c.box((0, 0, 0), (2 * cx, 0, L), "water")                                # река
+    for z in (0, L):                                                         # берега
+        c.box((0, 0, max(0, z - 6)), (2 * cx, 2, min(L, z + 6)), "grass_block")
+
+    for k in range(n + 1):                                                   # быки и арки
+        z = 4 + k * span
+        c.box((cx - W, 1, z - 2), (cx + W, deck - 1, z + 2), main)
+        if k < n:
+            h = round(span * 0.45)
+            c.arch((cx - W, deck - 1 - h, z + 3), (cx - W, deck - 1, z + span - 3), h, 2)
+            c.arch((cx + W, deck - 1 - h, z + 3), (cx + W, deck - 1, z + span - 3), h, 2)
+            for x in range(-W + 1, W):                                       # свод
+                c.arch((cx + x, deck - 1 - h, z + 3), (cx + x, deck - 1, z + span - 3), h, 1)
+
+    c.box((cx - W, deck, 0), (cx + W, deck, L), accent)                      # настил
+    c.box((cx - W + 1, deck + 1, 0), (cx + W - 1, deck + 1, L), "gravel")
+    for side in (1, -1):                                                     # перила и фонари
+        for z in range(0, L + 1):
+            c.set(cx + side * W, deck + 1, z, main)
+            if z % 2 == 0:
+                c.set(cx + side * W, deck + 2, z, "iron_bars")
+        for z in range(4, L, span // 2 or 1):
+            c.line((cx + side * W, deck + 2, z), (cx + side * W, deck + 5, z), main, 1)
+            c.set(cx + side * W, deck + 6, z, "lantern")
+    return c.v
+
+
+def mosque(main: str = "white_concrete", accent: str = "cyan_concrete",
+           scale: float = 1.0) -> dict:
+    """Мечеть: купольный зал, четыре минарета, портал с аркой, двор."""
+    c = Canvas()
+    S = max(16, round(24 * scale))             # полуширина зала
+    cx = cz = S + 8
+
+    c.box((cx - S - 7, 0, cz - S - 7), (cx + S + 7, 0, cz + S + 7), "smooth_sandstone")   # двор
+    c.hollow((cx - S, 1, cz - S), (cx + S, max(14, round(20 * scale)), cz + S), main, 2)
+    wall = max(14, round(20 * scale))
+    c.box((cx - S, wall + 1, cz - S), (cx + S, wall + 1, cz + S), accent)
+
+    c.dome((cx, wall + 2, cz), S - 2, accent)                                # главный купол
+    c.cyl((cx, wall + 2 + S - 2, cz), 2, 3, "gold_block")
+    c.sphere((cx, wall + 5 + S - 2, cz), 2, "gold_block")
+    for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):                        # малые купола
+        c.dome((cx + dx * round(S * 0.7), wall + 2, cz + dz * round(S * 0.7)), max(4, round(6 * scale)), accent)
+
+    for sx, sz in ((1, 1), (1, -1), (-1, 1), (-1, -1)):                      # минареты
+        mx, mz = cx + sx * (S + 4), cz + sz * (S + 4)
+        h = max(28, round(42 * scale))
+        c.cyl((mx, 1, mz), 3, h, main, hollow=True)
+        c.cyl((mx, round(h * 0.65), mz), 4, 1, accent)
+        c.cyl((mx, round(h * 0.65) + 1, mz), 4, 2, main, hollow=True)
+        c.cone((mx, h + 1, mz), 3, 6, accent)
+        c.set(mx, h + 8, mz, "gold_block")
+
+    portal = max(8, round(12 * scale))                                       # портал
+    c.box((cx - portal, 1, cz - S - 2), (cx + portal, wall + 4, cz - S - 1), main)
+    c.arch((cx - portal + 3, 1, cz - S - 2), (cx + portal - 3, portal, cz - S - 1), portal, 2)
+    c.carve((cx - portal + 4, 1, cz - S - 2), (cx + portal - 4, portal - 2, cz - S - 1))
+    for y in range(4, wall, 4):                                              # окна
+        for x in range(-S + 4, S - 3, 6):
+            c.box((cx + x, y, cz + S), (cx + x, y + 1, cz + S), "light_blue_stained_glass")
+    return c.v
+
+
+def obelisk(main: str = "smooth_sandstone", accent: str = "gold_block",
+            scale: float = 1.0) -> dict:
+    """Обелиск на ступенях: сужающийся столб, золотая пирамидка, чаши с огнём."""
+    c = Canvas()
+    H = max(36, round(58 * scale))
+    base = max(5, round(7 * scale))
+    cx = cz = base + 8
+
+    for k in range(4):                                                       # ступени
+        c.box((cx - base - 4 + k, k, cz - base - 4 + k), (cx + base + 4 - k, k, cz + base + 4 - k), "smooth_stone")
+    c.box((cx - base, 4, cz - base), (cx + base, 7, cz + base), main)        # цоколь
+    for y in range(8, H):                                                    # столб
+        r = max(1, round(base * 0.7 * (1 - 0.45 * (y - 8) / (H - 8))))
+        c.box((cx - r, y, cz - r), (cx + r, y, cz + r), main)
+    tip = max(3, round(base * 0.4))
+    c.cone((cx, H, cz), tip, tip * 2, accent)                                # пирамидка
+    for y in range(10, H - 4, 6):                                            # иероглифы-насечки
+        c.set(cx, y, cz - max(1, round(base * 0.7 * (1 - 0.45 * (y - 8) / (H - 8)))), accent)
+    for sx, sz in ((1, 1), (1, -1), (-1, 1), (-1, -1)):                      # чаши с огнём
+        fx, fz = cx + sx * (base + 3), cz + sz * (base + 3)
+        c.cyl((fx, 4, fz), 2, 3, main)
+        c.cyl((fx, 7, fz), 2, 1, accent)
+        c.set(fx, 8, fz, "glowstone")
+    return c.v
+
+
+def triumphal_arch(main: str = "smooth_sandstone", accent: str = "gold_block",
+                   scale: float = 1.0) -> dict:
+    """Триумфальная арка: большой проём, колонны, карниз, квадрига на крыше."""
+    c = Canvas()
+    W = max(14, round(22 * scale))             # полуширина
+    H = max(22, round(34 * scale))
+    D = max(5, round(8 * scale))
+    cx, cz = W + 3, D + 3
+
+    c.box((cx - W - 3, 0, cz - D - 3), (cx + W + 3, 0, cz + D + 3), "smooth_stone")
+    c.box((cx - W, 1, cz - D), (cx + W, H, cz + D), main)                    # массив
+    hole = round(W * 0.42)                                                   # главный проём
+    c.carve((cx - hole, 1, cz - D), (cx + hole, round(H * 0.45), cz + D))
+    for x in range(-hole, hole + 1):
+        c.arch((cx + x, round(H * 0.45), cz - D), (cx + x, round(H * 0.45), cz + D), hole, 1)
+    c.put([(cx + x, y, z) for x, y, z in []], main)
+    for z in range(cz - D, cz + D + 1):                                      # свод проёма
+        c.arch((cx - hole, round(H * 0.45) - hole, z), (cx + hole, round(H * 0.45), z), hole, 1)
+    c.carve((cx - hole + 1, 1, cz - D), (cx + hole - 1, round(H * 0.45) - 1, cz + D))
+
+    for side in (1, -1):                                                     # боковые проёмы
+        sx = cx + side * round(W * 0.72)
+        c.carve((sx - 2, 1, cz - D), (sx + 2, round(H * 0.24), cz + D))
+    for side in (1, -1):                                                     # колонны
+        for k in (0.5, 0.95):
+            px = cx + side * round(W * k)
+            for z in (cz - D, cz + D):
+                c.cyl((px, 1, z), 2, round(H * 0.6), accent if k > 0.9 else main)
+                c.cyl((px, 1 + round(H * 0.6), z), 3, 1, accent)
+    c.box((cx - W - 2, H - 3, cz - D - 2), (cx + W + 2, H - 1, cz + D + 2), accent)   # карниз
+    c.box((cx - W, H, cz - D), (cx + W, H, cz + D), main)
+
+    qx = cx                                                                   # квадрига
+    c.box((qx - 3, H + 1, cz - 1), (qx + 3, H + 3, cz + 1), accent)
+    for k in range(4):
+        hx = qx - 5 + k * 3
+        c.box((hx, H + 1, cz - 4), (hx, H + 4, cz - 2), main)
+        c.set(hx, H + 5, cz - 4, main)
+    return c.v
+
+
+def clock_tower(main: str = "smooth_sandstone", accent: str = "gold_block",
+                scale: float = 1.0) -> dict:
+    """Часовая башня: подножие, ствол, четыре циферблата, шпиль с фонарём."""
+    c = Canvas()
+    S = max(6, round(9 * scale))               # полуширина
+    H = max(42, round(64 * scale))
+    cx = cz = S + 6
+
+    c.box((cx - S - 3, 0, cz - S - 3), (cx + S + 3, 1, cz + S + 3), "stone_bricks")
+    c.hollow((cx - S, 2, cz - S), (cx + S, round(H * 0.72), cz + S), main, 2)
+    for y in range(6, round(H * 0.7), 7):                                     # вертикальные тяги
+        for x in (-S, S):
+            c.box((cx + x, y, cz - S + 2), (cx + x, y + 4, cz - S + 2), accent)
+            c.box((cx + x, y, cz + S - 2), (cx + x, y + 4, cz + S - 2), accent)
+    c.carve((cx - 2, 2, cz - S), (cx + 2, 7, cz - S))                         # вход
+    c.arch((cx - 2, 2, cz - S), (cx + 2, 7, cz - S), 3, 1)
+
+    face = round(H * 0.74)                                                    # ярус с часами
+    c.box((cx - S - 2, face - 2, cz - S - 2), (cx + S + 2, face - 1, cz + S + 2), accent)
+    c.hollow((cx - S - 1, face, cz - S - 1), (cx + S + 1, face + 2 * S, cz + S + 1), main, 2)
+    r = S - 1
+    for dx, dz, nx, nz in ((0, -S - 1, 1, 0), (0, S + 1, 1, 0), (-S - 1, 0, 0, 1), (S + 1, 0, 0, 1)):
+        fy = face + S
+        for a in range(0, 360, 4):                                            # круг циферблата
+            t = math.radians(a)
+            c.set(cx + dx + nx * r * math.cos(t), fy + r * math.sin(t), cz + dz + nz * r * math.cos(t), accent)
+        for a in range(0, 360, 30):                                           # деления
+            t = math.radians(a)
+            c.set(cx + dx + nx * (r - 1) * math.cos(t), fy + (r - 1) * math.sin(t),
+                  cz + dz + nz * (r - 1) * math.cos(t), "black_concrete")
+        for s in range(r - 2):                                                # стрелки
+            c.set(cx + dx + nx * 0, fy + s, cz + dz + nz * 0, "black_concrete")
+        for s in range(r - 4):
+            c.set(cx + dx + nx * s, fy, cz + dz + nz * s, "black_concrete")
+
+    top = face + 2 * S
+    c.box((cx - S - 2, top, cz - S - 2), (cx + S + 2, top + 1, cz + S + 2), accent)
+    for sx, sz in ((1, 1), (1, -1), (-1, 1), (-1, -1)):                       # пинакли
+        c.cone((cx + sx * (S + 1), top + 2, cz + sz * (S + 1)), 2, 5, main)
+    c.cone((cx, top + 2, cz), S, max(12, round(18 * scale)), main)            # шпиль
+    c.set(cx, top + 2 + max(12, round(18 * scale)), cz, "glowstone")
+    c.line((cx, top + 3 + max(12, round(18 * scale)), cz),
+           (cx, top + 6 + max(12, round(18 * scale)), cz), accent, 1)
+    return c.v
+
+
+def igloo(main: str = "snow_block", accent: str = "packed_ice",
+          scale: float = 1.0) -> dict:
+    """Иглу: снежный купол, тоннель-вход, ледяное окно, костёр и сугробы."""
+    c = Canvas()
+    R = max(9, round(13 * scale))
+    cx = cz = R + 9
+
+    for x in range(2 * cx + 1):                                               # снежная поляна
+        for z in range(2 * cz + 1):
+            if math.hypot(x - cx, z - cz) <= cx - 1:
+                c.set(x, 0, z, "snow_block")
+
+    c.dome((cx, 1, cz), R, main, hollow=True)                                 # купол
+    c.dome((cx, 1, cz), R - 2, "air")
+    for y in range(1, R):                                                     # кладка полосами
+        if y % 3 == 0:
+            for a in range(0, 360, 5):
+                t = math.radians(a)
+                rr = math.sqrt(max(0.0, R * R - (y - 1) ** 2))
+                c.set(cx + rr * math.cos(t), y, cz + rr * math.sin(t), accent)
+    c.set(cx, R, cz, accent)                                                  # люк дымохода
+    c.set(cx + 1, round(R * 0.62), cz - round(R * 0.78), "light_blue_stained_glass")
+    c.set(cx - 1, round(R * 0.62), cz - round(R * 0.78), "light_blue_stained_glass")
+
+    tz = cz - R                                                               # тоннель
+    for z in range(tz - max(5, round(7 * scale)), tz + 2):
+        c.dome((cx, 1, z), 3, main, hollow=True)
+    c.carve((cx - 2, 1, tz - max(5, round(7 * scale))), (cx + 2, 3, tz + 1))
+    c.box((cx - 1, 1, tz - max(5, round(7 * scale)) - 1), (cx + 1, 3, tz - max(5, round(7 * scale)) - 1), "air")
+
+    fx, fz = cx + R + 4, cz                                                   # костёр
+    for a in range(0, 360, 45):
+        t = math.radians(a)
+        c.set(fx + 2 * math.cos(t), 1, fz + 2 * math.sin(t), "cobblestone")
+    c.set(fx, 1, fz, "campfire")
+    c.set(fx, 2, fz, "fire")
+    for k in range(6):                                                        # сугробы
+        a = math.radians(k * 61)
+        c.sphere((cx + math.cos(a) * (R + 6), 0, cz + math.sin(a) * (R + 6)), 2, main)
+    return c.v
