@@ -34,44 +34,8 @@ DEFAULT_GROUND_Y = -60
 DEFAULT_DELAY = 0.12
 
 
-# --- шаг 1: программа -> воксели ----------------------------------------
-
-cells_of = P.cells_of   # вся геометрия и выбор примитива живут в primitives.py
-
-
-def render(program: BuildProgram, origin: Vec3 = (0, 0, 0)) -> Voxels:
-    """Программа -> {координата: блок}. Части идут по порядку, последняя главнее.
-
-    Благодаря этому часть с блоком "air" вырезает окна и двери в уже
-    поставленной стене.
-    """
-    ox, oy, oz = origin
-    voxels: Voxels = {}
-    for part in program.parts:
-        block = part.block
-        for x, y, z in cells_of(part):
-            voxels[(ox + x, oy + y, oz + z)] = block
-    if len(voxels) > MAX_BLOCKS:
-        raise ValueError(
-            f"постройка слишком большая: {len(voxels)} блоков (предел {MAX_BLOCKS})"
-        )
-    return voxels
-
-
-def layers(voxels: Voxels) -> list[tuple[int, list[tuple[Vec3, str]]]]:
-    """Группирует воксели по высоте y, снизу вверх."""
-    by_y: dict[int, list[tuple[Vec3, str]]] = defaultdict(list)
-    for pos, block in voxels.items():
-        by_y[pos[1]].append((pos, block))
-    return [(y, by_y[y]) for y in sorted(by_y)]
-
-
-def bounds(voxels: Voxels) -> tuple[Vec3, Vec3]:
-    """Габариты постройки в абсолютных координатах."""
-    xs = [p[0] for p in voxels]
-    ys = [p[1] for p in voxels]
-    zs = [p[2] for p in voxels]
-    return (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))
+# --- шаг 1: программа -> воксели живёт в voxels.py (без Minecraft) ---
+from .voxels import Voxels, bounds, cells_of, layers, render  # noqa: E402,F401
 
 
 # --- шаг 2: воксели -> Minecraft ----------------------------------------

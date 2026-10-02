@@ -13,6 +13,7 @@ Vec3 = tuple[int, int, int]
 Cells = list[Vec3]
 
 AXES = {"x": 0, "y": 1, "z": 2}
+MAX_CELLS = 400_000        # защита от «повтори огромный шар 64 раза»
 
 
 # --- мелкие помощники ----------------------------------------------------
@@ -218,6 +219,49 @@ def arch(start: Vec3, end: Vec3, height: int, thickness: int = 1) -> Cells:
     return sorted(seen)
 
 
+def cone(center: Vec3, radius: int, height: int, hollow: bool = False) -> Cells:
+    """Конус остриём вверх: шпили, шатровые крыши. center — центр основания."""
+    h = max(1, height)
+    cells: Cells = []
+    for k in range(h):
+        r = int(round(max(0, radius) * (1 - k / h)))      # радиус слоя тает до нуля
+        for u, v in _disk(r, hollow and r > 1):
+            cells.append((center[0] + u, center[1] + k, center[2] + v))
+    return cells
+
+
+def dome(center: Vec3, radius: int, height: int | None = None,
+         hollow: bool = False) -> Cells:
+    """Купол — верхняя половина эллипсоида. center — центр плоского основания,
+    height — высота купола (по умолчанию равна радиусу)."""
+    r = max(0, radius)
+    ry = max(1, height or r or 1)
+    cells: Cells = []
+    for dx in range(-r, r + 1):
+        for dz in range(-r, r + 1):
+            for dy in range(0, ry + 1):
+                outer = (dx / (r + 0.5)) ** 2 + (dz / (r + 0.5)) ** 2 + (dy / (ry + 0.5)) ** 2
+                if outer > 1:
+                    continue
+                if hollow:
+                    ri, rj = max(r - 0.5, 0.1), max(ry - 0.5, 0.1)
+                    if (dx / ri) ** 2 + (dz / ri) ** 2 + (dy / rj) ** 2 < 1:
+                        continue
+                cells.append((center[0] + dx, center[1] + dy, center[2] + dz))
+    return cells
+
+
+def repeat(base: Cells, count: int, step: Vec3) -> Cells:
+    """Копии одной фигуры со сдвигом step: окна, колонны, зубцы стен, ступени."""
+    if len(base) * count > MAX_CELLS:
+        raise ValueError(f"повтор слишком большой: {len(base)} x {count} блоков")
+    cells: Cells = []
+    for i in range(count):
+        dx, dy, dz = step[0] * i, step[1] * i, step[2] * i
+        cells += [(x + dx, y + dy, z + dz) for x, y, z in base]
+    return cells
+
+
 # --- выбор примитива по его типу ----------------------------------------
 
 def cells_of(part) -> Cells:
@@ -242,4 +286,10 @@ def cells_of(part) -> Cells:
         return roof(part.start, part.end, part.style, part.height, part.axis)
     if t == "arch":
         return arch(part.start, part.end, part.height, part.thickness)
+    if t == "cone":
+        return cone(part.center, part.radius, part.height, part.hollow)
+    if t == "dome":
+        return dome(part.center, part.radius, part.height, part.hollow)
+    if t == "repeat":
+        return repeat(cells_of(part.part), part.count, part.step)
     raise ValueError(f"неизвестный примитив: {t}")
