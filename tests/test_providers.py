@@ -1,7 +1,8 @@
 """Несколько провайдеров в одной гонке: NVIDIA и Gemini рядом.
 
-Модель называется «провайдер/имя». Без ключа модель молча выпадает из цепочки,
-иначе её отсутствие стоило бы ожидания на каждом запросе.
+Модель называется «провайдер:имя». Разделитель — двоеточие, а не косая черта:
+у NVIDIA есть модели с именами вроде «google/gemma-4-31b-it», и по косой черте
+они уезжали бы не туда. Без ключа модель молча выпадает из цепочки.
 """
 
 import os
@@ -14,7 +15,7 @@ from backend import ai
 class EndpointTests(unittest.TestCase):
     def test_gemini_уходит_к_google(self):
         with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "тест-ключ"}):
-            base, key, name, headers = ai.endpoint_for("google/gemini-3.8-flash")
+            base, key, name, headers = ai.endpoint_for("gemini:gemini-3.8-flash")
         self.assertIn("generativelanguage.googleapis.com", base)
         self.assertEqual(name, "gemini-3.8-flash")     # префикс провайдера не отправляем
         self.assertEqual(key, "тест-ключ")
@@ -22,9 +23,15 @@ class EndpointTests(unittest.TestCase):
 
     def test_псевдоним_gemini_работает_так_же(self):
         with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "тест-ключ"}):
-            base_a, _, name_a, _ = ai.endpoint_for("google/gemini-3.8-flash")
-            base_b, _, name_b, _ = ai.endpoint_for("gemini/gemini-3.8-flash")
+            base_a, _, name_a, _ = ai.endpoint_for("gemini:gemini-3.8-flash")
+            base_b, _, name_b, _ = ai.endpoint_for("google:gemini-3.8-flash")
         self.assertEqual((base_a, name_a), (base_b, name_b))
+
+    def test_gemma_остаётся_у_nvidia_хотя_имя_начинается_с_google(self):
+        with mock.patch.dict(os.environ, {"NVIDIA_API_KEY": "nv", "GEMINI_API_KEY": "g"}):
+            base, _, name, _ = ai.endpoint_for("google/gemma-4-31b-it")
+        self.assertIn("integrate.api.nvidia.com", base)
+        self.assertEqual(name, "google/gemma-4-31b-it")
 
     def test_остальные_модели_идут_на_основной_endpoint(self):
         with mock.patch.dict(os.environ, {"NVIDIA_API_KEY": "nv"}, clear=False):
@@ -36,11 +43,11 @@ class EndpointTests(unittest.TestCase):
     def test_без_ключа_модель_не_попадает_в_цепочку(self):
         env = {k: v for k, v in os.environ.items() if k not in ("GEMINI_API_KEY", "GOOGLE_API_KEY")}
         with mock.patch.dict(os.environ, env, clear=True):
-            _, key, _, _ = ai.endpoint_for("google/gemini-3.8-flash")
+            _, key, _, _ = ai.endpoint_for("gemini:gemini-3.8-flash")
         self.assertIsNone(key)
 
     def test_запрос_без_ключа_это_ошибка_ключа_а_не_таймаут(self):
         env = {k: v for k, v in os.environ.items() if k not in ("GEMINI_API_KEY", "GOOGLE_API_KEY")}
         with mock.patch.dict(os.environ, env, clear=True):
             with self.assertRaises(ai.AuthError):
-                ai._chat([{"role": "user", "content": "hi"}], "google/gemini-3.8-flash", 5, 0.4, 10)
+                ai._chat([{"role": "user", "content": "hi"}], "gemini:gemini-3.8-flash", 5, 0.4, 10)

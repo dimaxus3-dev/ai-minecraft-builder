@@ -34,9 +34,11 @@ from builder.schema import BuildProgram, schema_for_prompt
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
-# Провайдеры. Имя модели вида «google/gemini-3.8-flash» выбирает провайдера по
-# первому слову; всё остальное идёт на основной endpoint (NVIDIA). У Google есть
-# слой, совместимый с OpenAI, поэтому запрос везде один и тот же.
+# Провайдеры. Имя модели вида «gemini:gemini-3.8-flash» выбирает провайдера по
+# части до ДВОЕТОЧИЯ; всё остальное идёт на основной endpoint (NVIDIA). Двоеточие,
+# а не косая черта: у NVIDIA есть модели с именами вроде «google/gemma-4-31b-it»,
+# и по косой черте они уезжали бы в Gemini. У Google есть слой, совместимый с
+# OpenAI, поэтому запрос везде один и тот же.
 # (адрес, имена переменных с ключом, как передавать ключ)
 GOOGLE = ("https://generativelanguage.googleapis.com/v1beta/openai",
           ("GEMINI_API_KEY", "GOOGLE_API_KEY"), "bearer")
@@ -245,12 +247,13 @@ def extract_json(text: str) -> dict[str, Any]:
 def endpoint_for(model: str) -> tuple[str, str | None, str, dict]:
     """Адрес, ключ, имя модели у провайдера и заголовки запроса.
 
-    «google/gemini-3.8-flash» -> Gemini с ключом GEMINI_API_KEY и именем
-    «gemini-3.8-flash»; всё прочее — основной endpoint (NVIDIA). Слой Google,
+    «gemini:gemini-3.8-flash» -> Gemini с ключом GEMINI_API_KEY и именем
+    «gemini-3.8-flash»; всё прочее, включая «google/gemma-4-31b-it», — основной
+    endpoint (NVIDIA: там Gemma и живёт). Слой Google,
     совместимый с OpenAI, принимает ключ как «Bearer»; нативный путь того же
     сервиса ждёт заголовок x-goog-api-key — отсюда третье поле в таблице.
     Ключа нет — возвращаем None, и такую модель в гонку не берём."""
-    head, _, rest = model.partition("/")
+    head, _, rest = model.partition(":")
     provider = PROVIDERS.get(head.lower())
     if provider and rest:
         base, env_names, header = provider
