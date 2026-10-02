@@ -138,13 +138,18 @@ def log_unmatched(text: str, had_facts: bool) -> None:
 
 
 def blueprint_program(blueprint_id: str, text: str) -> BuildProgram:
-    """Программа из одной части-чертежа: знаменитое здание без участия LLM."""
+    """Программа из одной части-чертежа: знаменитое здание или предмет без участия LLM.
+
+    Цвет, материал и размер берём из самого запроса, поэтому «большой красный самолёт»
+    и «деревянный корабль» — разные постройки, а не один и тот же чертёж."""
+    params = blueprints.params_for(blueprint_id, text)
     program = BuildProgram.model_validate({
         "name": blueprints.title(blueprint_id, text), "size": [1, 1, 1],
-        "parts": [{"type": "blueprint", "id": blueprint_id}]})
+        "parts": [{"type": "blueprint", "id": blueprint_id, "params": params}]})
     program.size = program.real_size()
     program.source = "blueprint"
-    log.info("«%s»: готовый чертёж %s, без LLM", text[:40], blueprint_id)
+    log.info("«%s»: готовый чертёж %s%s, без LLM", text[:40], blueprint_id,
+             f" {params}" if params else "")
     return program
 
 

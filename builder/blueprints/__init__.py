@@ -28,6 +28,8 @@ class Entry:
     fn: Callable[..., dict]
     about: str = field(default="")
     generic: bool = False      # типовое здание: берём чертёж только на короткий запрос
+    tunable: bool = False      # принимает цвет/размер/материал из запроса (params.py)
+    max_words: int = 3         # предел длины запроса для generic-записей
 
 
 REGISTRY: dict[str, Entry] = {}
@@ -91,6 +93,59 @@ def _load() -> None:
         except Exception as e:                      # кривой плагин не должен ронять всю библиотеку
             import logging
             logging.getLogger("hack.blueprints").warning("плагин %s не загружен: %s", info.name, e)
+    # Предметы (не здания): карта их не знает, а модель рисует технику плохо.
+    # Все принимают цвет, материал и размер из запроса, поэтому вариантов тысячи.
+    from . import things as T
+    for id_, en, ru, al, fn, about in (
+        ("plane", "Airplane", "Самолёт",
+         [("самолет",), ("самолёт",), ("самолёта",), ("самолётик",), ("plane",), ("airplane",),
+          ("aeroplane",), ("aircraft",), ("jet",), ("боинг",), ("boeing",), ("airbus",),
+          ("аэробус",), ("лайнер",), ("авиалайнер",)], T.plane,
+         "airliner on a runway: tapered fuselage, swept wings, two engines, tail fin, landing gear"),
+        ("ship", "Sailing ship", "Корабль",
+         [("корабл",), ("кораблик",), ("судно",), ("парусник",), ("фрегат",), ("каравелл",),
+          ("галеон",), ("ship",), ("boat",), ("sailboat",), ("galleon",), ("frigate",),
+          ("яхта",), ("yacht",), ("титаник",), ("titanic",)], T.ship,
+         "wooden sailing ship on water: hull, deck, three masts with sails, stern cabin, bowsprit"),
+        ("rocket", "Rocket", "Ракета",
+         [("ракет",), ("rocket",), ("шаттл",), ("shuttle",), ("starship",), ("звездолет",),
+          ("звездолёт",), ("spaceship",), ("spacecraft",)], T.rocket,
+         "rocket on a launch pad: striped body, nose cone, four fins, nozzles, service tower"),
+        ("train", "Steam train", "Поезд",
+         [("поезд",), ("паровоз",), ("локомотив",), ("электричк",), ("train",), ("locomotive",),
+          ("railway",), ("железная", "дорога")], T.train,
+         "steam locomotive with tender and carriage on rails: boiler, chimney, cab, wheels, embankment"),
+        ("car", "Car", "Машина",
+         [("машин",), ("автомобил",), ("тачк",), ("car",), ("automobile",), ("джип",), ("jeep",),
+          ("грузовик",), ("truck",), ("bus",), ("автобус",)], T.car,
+         "car on asphalt: body, cabin with glass, four wheels, headlights"),
+        ("tank", "Tank", "Танк",
+         [("танк",), ("tank",), ("бронетехник",)], T.tank,
+         "tank: hull, tracks with road wheels, turret with a long gun, hatch, antenna"),
+        ("robot", "Robot", "Робот",
+         [("робот",), ("robot",), ("андроид",), ("android",), ("меха",), ("mech",),
+          ("киборг",), ("cyborg",)], T.robot,
+         "standing robot: boxy body, head with a glowing visor, arms with shoulder balls, legs on a plate"),
+        ("ferris_wheel", "Ferris wheel", "Колесо обозрения",
+         [("колесо", "обозрен"), ("ferris",), ("обозрения",), ("чертово", "колесо"),
+          ("чёртово", "колесо")], T.ferris_wheel,
+         "ferris wheel: rim with spokes, twelve coloured cabins, two legs, platform"),
+        ("fountain", "Fountain", "Фонтан",
+         [("фонтан",), ("fountain",)], T.fountain,
+         "fountain: round basin, stacked bowls, water jets, lanterns on the rim"),
+        ("statue", "Statue", "Статуя",
+         [("статуя",), ("статую",), ("статуи",), ("statue",), ("памятник",), ("изваяние",)], T.statue,
+         "statue on a pedestal: figure with a raised torch, cloak, crown, steps"),
+        ("stadium", "Stadium", "Стадион",
+         [("стадион",), ("stadium",), ("арена",), ("arena",)], T.stadium,
+         "stadium: oval tiered stands, green pitch with markings, goals, floodlights"),
+        ("tree", "Great tree", "Дерево",
+         [("дерево",), ("дерева",), ("деревья",), ("tree",), ("баобаб",), ("baobab",),
+          ("сакура",), ("sakura",), ("дубрав",)], T.tree,
+         "huge tree: twisting trunk, branches, leaf crown, grass mound, mossy rocks"),
+    ):
+        register(Entry(id_, en, ru, al, fn, about, tunable=True))
+
     for id_, en, ru, al, fn, about in (
         ("castle", "Castle", "Замок", [("замок",), ("castle",), ("крепост",), ("fortress",)], A.castle,
          "stone castle with moat, four corner towers with red cone roofs, gatehouse, keep"),
@@ -107,7 +162,7 @@ def _load() -> None:
         ("lighthouse", "Lighthouse", "Маяк", [("маяк",), ("lighthouse",)], A.lighthouse,
          "red and white striped lighthouse on rocks, lantern room"),
     ):
-        register(Entry(id_, en, ru, al, fn, about, generic=True))
+        register(Entry(id_, en, ru, al, fn, about, generic=True, tunable=False))
 
 
 def _text(s: str) -> str:
@@ -126,14 +181,14 @@ def match(text: str) -> str | None:
     t = _text(text)
     words = len(t.split())
     for entry in REGISTRY.values():
-        if entry.generic and words > 3:
+        if entry.generic and words > entry.max_words:
             continue          # «красный замок с драконом» — пожелания, пусть думает модель
         if any(all(_has_stem(t, part) for part in alias) for alias in entry.aliases):
             return entry.id
     return None
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=256)
 def _built(id: str, params: tuple) -> dict:
     return normalize(REGISTRY[id].fn(**dict(params)))
 
@@ -143,6 +198,16 @@ def build(id: str, params: dict | None = None) -> dict:
     if id not in REGISTRY:
         raise ValueError(f"нет такого чертежа: {id}")
     return _built(id, tuple(sorted((params or {}).items())))
+
+
+def params_for(id: str, request_text: str) -> dict:
+    """Цвет, размер и материал из запроса — для чертежей, которые их принимают.
+    Благодаря этому один чертёж даёт тысячи разных построек."""
+    entry = REGISTRY.get(id)
+    if not entry or not entry.tunable:
+        return {}
+    from . import params
+    return params.parse(request_text)
 
 
 def title(id: str, request_text: str = "") -> str:
