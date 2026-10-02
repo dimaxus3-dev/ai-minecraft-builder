@@ -1,0 +1,16 @@
+[Unit]
+Description=AI Minecraft Builder (сервер)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=hack
+Group=hack
+WorkingDirectory=/opt/hack
+# .env читает сам python-dotenv (он понимает комментарии в строках; systemd EnvironmentFile не понимает)
+ExecStart=/opt/hack/venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
