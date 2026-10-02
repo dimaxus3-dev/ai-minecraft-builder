@@ -78,6 +78,16 @@ class Hub:
 hub = Hub()
 
 
+def slim(row: dict | None) -> dict | None:
+    """В публичные ответы и события программа идёт без блоков: имя и размер телефонам хватает,
+    а здание с карты весит сотни килобайт."""
+    if row and row.get("program"):
+        prog = row["program"]
+        row = {**row, "program": {"name": prog.get("name"), "size": prog.get("size"),
+                                  "source": prog.get("source"), "model": prog.get("model")}}
+    return row
+
+
 class Worker:
     """Единственный воркер-строитель. Побеждает последний подключившийся."""
 
@@ -108,7 +118,7 @@ async def announce(request_row: dict | None = None, **extra) -> None:
     event = {"type": "update", "stats": db.stats(),
              "worker_online": worker.online, **extra}
     if request_row is not None:
-        event["request"] = request_row
+        event["request"] = slim(request_row)
     await hub.send(event)
 
 
@@ -327,12 +337,12 @@ async def api_request(request: Request) -> JSONResponse:
     row = db.add(text, author=(body.get("author") or "")[:40], ip=ip)
     start_pregen(row["id"], row["text"])
     await announce(row)
-    return JSONResponse(row)
+    return JSONResponse(slim(row))
 
 
 @app.get("/api/requests")
 async def api_requests() -> dict:
-    return {"requests": db.recent(), "stats": db.stats(),
+    return {"requests": [slim(r) for r in db.recent()], "stats": db.stats(),
             "worker_online": worker.online}
 
 
@@ -353,7 +363,7 @@ async def api_approve(secret: str, request_id: int) -> dict:
         return row        # уже одобрен или строится: повторный клик ничего не ломает
     row = db.set_status(request_id, db.APPROVED)
     await announce(row)
-    return row                                        # type: ignore[return-value]
+    return slim(row)                                  # type: ignore[return-value]
 
 
 @app.post("/api/admin/{secret}/{request_id}/reject")
@@ -364,7 +374,7 @@ async def api_reject(secret: str, request_id: int) -> dict:
     if not row:
         raise HTTPException(404, "нет такого запроса")
     await announce(row)
-    return row
+    return slim(row)
 
 
 @app.post("/api/admin/{secret}/{request_id}/text")
@@ -380,7 +390,7 @@ async def api_edit(secret: str, request_id: int, request: Request) -> dict:
         row = db.clear_program(request_id)
         start_pregen(request_id, row["text"])             # type: ignore[index]
     await announce(row)
-    return row
+    return slim(row)
 
 
 # --- WebSocket -----------------------------------------------------------
@@ -388,7 +398,7 @@ async def api_edit(secret: str, request_id: int, request: Request) -> dict:
 async def page_socket(channel: str, ws: WebSocket) -> None:
     await hub.join(channel, ws)
     try:
-        await ws.send_json({"type": "init", "requests": db.recent(),
+        await ws.send_json({"type": "init", "requests": [slim(r) for r in db.recent()],
                             "stats": db.stats(), "worker_online": worker.online})
         while True:                      # страницы только слушают
             await ws.receive_text()

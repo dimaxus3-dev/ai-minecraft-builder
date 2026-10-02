@@ -8,3 +8,8 @@ requests==2.34.2
 python-dotenv==1.2.4
 websockets==17.1
 python-multipart==0.0.32
+
+# для builder/osm.py (здания с карты OpenStreetMap), его зовёт backend/ai.py
+numpy==2.5.3
+pillow==12.3.0
+scipy==1.18.1
