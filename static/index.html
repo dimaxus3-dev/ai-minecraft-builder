@@ -1,182 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0f172a">
-  <title>AI Minecraft Builder</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
-  <main class="mx-auto max-w-lg px-5 py-10 sm:py-16">
-    <header class="mb-8">
-      <div class="mb-6 flex items-center justify-between">
-        <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400 text-2xl text-slate-950" aria-hidden="true">▦</span>
-        <span class="rounded-full border border-slate-700 px-3 py-1 text-xs font-medium text-slate-400">Live</span>
-      </div>
-      <p class="mb-2 text-sm font-semibold text-emerald-400">AI MINECRAFT BUILDER</p>
-      <h1 class="text-4xl font-bold leading-tight tracking-tight">Imagine it.<br>Build it in blocks.</h1>
-      <p class="mt-4 text-base leading-relaxed text-slate-400">Describe your next Minecraft creation. We’ll take it from idea to build.</p>
-    </header>
-
-    <form id="build-form" class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <label for="prompt" class="mb-3 block text-sm font-semibold">What do you want to build?</label>
-      <textarea id="prompt" name="prompt" rows="4" maxlength="300" required placeholder="A castle on a mountain, with tall towers and a secret entrance…" class="block w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-4 text-base leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"></textarea>
-      <p id="prompt-error" role="alert" class="mt-3 hidden text-sm text-red-400"></p>
-      <p class="mb-3 mt-5 text-xs font-medium text-slate-400">NEED AN IDEA? TRY ONE</p>
-      <div class="grid grid-cols-2 gap-2">
-        <button type="button" data-suggestion="Castle" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Castle</button>
-        <button type="button" data-suggestion="Dragon" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Dragon</button>
-        <button type="button" data-suggestion="Lighthouse" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Lighthouse</button>
-        <button type="button" data-suggestion="Golden Gate Bridge" class="min-h-12 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Golden Gate Bridge</button>
-      </div>
-      <button id="submit-button" type="submit" class="mt-6 min-h-14 w-full rounded-xl bg-emerald-400 px-4 py-4 text-base font-bold text-slate-950 transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400 disabled:cursor-wait disabled:opacity-60">Build my idea <span aria-hidden="true">→</span></button>
-      <p class="mt-3 text-center text-xs leading-relaxed text-slate-500"><span id="live-line">Every idea is reviewed, then built live in Minecraft</span></p>
-    </form>
-
-    <section aria-labelledby="status-heading" class="mt-5 rounded-2xl border border-slate-800 p-5">
-      <div class="mb-4 flex items-center justify-between">
-        <h2 id="status-heading" class="text-sm font-semibold">Your build status</h2>
-        <span id="status-badge" class="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">Ready</span>
-      </div>
-      <div role="status" aria-live="polite" aria-atomic="true">
-        <p id="status-title" class="font-medium">Your next big idea starts here.</p>
-        <p id="status-detail" class="mt-2 break-words text-sm leading-relaxed text-slate-400">Enter a description or tap a suggestion to get started.</p>
-      </div>
-      <div id="progress" role="progressbar" aria-label="Build progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
-        <div id="progress-fill" class="h-full w-0 rounded-full bg-emerald-400 transition-all duration-500 motion-reduce:transition-none"></div>
-      </div>
-      <p class="mt-3 text-xs text-slate-500"><span id="source-line">Famous landmarks are built from hand-made blueprints, everything else is designed by an open-weight AI model.</span></p>
-    </section>
-    <footer class="mt-8 text-center text-xs text-slate-500">Big imagination. One block at a time.</footer>
-  </main>
-
-  <script>
-    const form = document.getElementById('build-form');
-    const promptInput = document.getElementById('prompt');
-    const submitButton = document.getElementById('submit-button');
-    const badge = document.getElementById('status-badge');
-    const title = document.getElementById('status-title');
-    const detail = document.getElementById('status-detail');
-    const progress = document.getElementById('progress');
-    const fill = document.getElementById('progress-fill');
-    const promptError = document.getElementById('prompt-error');
-    const liveLine = document.getElementById('live-line');
-    const sourceLine = document.getElementById('source-line');
-    const suggestions = [...document.querySelectorAll('[data-suggestion]')];
-    const SOURCE = { blueprint: 'hand-built blueprint', osm: 'real map data (OpenStreetMap)', model: 'designed by AI' };
-    let busy = false, myId = Number(localStorage.getItem('hackRid')) || null, building = null;
-
-    // Ещё идеи: показываем, что умеем не только английские слова (копии первой кнопки, тот же вид).
-    ['Eiffel Tower', 'Taj Mahal', 'Байтерек', 'Софійський собор'].forEach(text => {
-      const b = suggestions[0].cloneNode(true);
-      b.dataset.suggestion = text; b.textContent = text;
-      suggestions[suggestions.length - 1].parentNode.appendChild(b);
-      suggestions.push(b);
-    });
-    suggestions.forEach(button => button.addEventListener('click', () => {
-      promptInput.value = button.dataset.suggestion;
-      promptError.classList.add('hidden');
-      promptInput.focus();
-    }));
-
-    function updateStatus(label, heading, message, percent) {
-      badge.textContent = label;
-      title.textContent = heading;
-      detail.textContent = message;
-      progress.setAttribute('aria-valuenow', String(Math.round(percent)));
-      fill.style.width = percent + '%';
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#020617"><title>AI Minecraft Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>h1{font-size:clamp(1.15rem,5.3vw,1.9rem);white-space:nowrap}</style>
+</head><body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+<main class="mx-auto max-w-lg px-5 py-8 sm:py-12">
+  <header class="mb-7"><p class="mb-3 text-xs font-bold tracking-widest text-emerald-400">AI MINECRAFT BUILDER</p>
+    <h1 class="font-bold tracking-tight">Your idea → Minecraft</h1>
+    <p class="mt-3 text-slate-400">Describe a build. A moderator approves it, then open AI models bring it to life.</p>
+    <p id="connection" class="mt-3 text-xs text-slate-400" role="status">Connecting…</p><p id="worker" class="mt-1 text-xs text-slate-400"></p>
+  </header>
+  <form id="build-form" class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <label for="prompt" class="mb-3 block font-semibold">What should we build?</label>
+    <textarea id="prompt" rows="3" maxlength="300" minlength="2" required autofocus placeholder="A lighthouse overlooking the ocean…" class="w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-base focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"></textarea>
+    <div class="mt-2 flex items-center justify-between"><span id="count" class="text-xs text-slate-400">0 / 300</span><button id="mic" type="button" hidden aria-label="Dictate a build" class="rounded-lg border border-slate-700 px-3 py-2">🎤</button></div>
+    <div class="mt-4 grid grid-cols-2 gap-2">
+      <button type="button" data-suggestion="Lighthouse" class="rounded-lg border border-slate-700 px-2 py-3 text-sm hover:border-emerald-400">Lighthouse</button>
+      <button type="button" data-suggestion="Dragon" class="rounded-lg border border-slate-700 px-2 py-3 text-sm hover:border-emerald-400">Dragon</button>
+      <button type="button" data-suggestion="Clock tower" class="rounded-lg border border-slate-700 px-2 py-3 text-sm hover:border-emerald-400">Clock tower</button>
+      <button type="button" data-suggestion="Golden Gate Bridge" class="rounded-lg border border-slate-700 px-2 py-3 text-sm hover:border-emerald-400">Golden Gate Bridge</button>
+    </div>
+    <label for="author" class="mb-2 mt-4 block text-sm text-slate-400">Your name (optional)</label>
+    <input id="author" maxlength="40" autocomplete="nickname" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3">
+    <p id="error" class="mt-3 text-sm text-red-400" role="alert"></p>
+    <button id="submit" type="submit" class="mt-3 w-full rounded-xl bg-emerald-400 py-4 font-bold text-slate-950 hover:bg-emerald-300 disabled:opacity-50">Send my idea →</button>
+  </form>
+  <section class="mt-5 rounded-2xl border border-slate-800 p-5" aria-live="polite">
+    <h2 class="text-sm text-slate-400">Your latest request</h2><p id="status" class="mt-2 text-lg font-semibold">Your idea starts here.</p>
+    <p id="description" class="mt-2 break-words text-sm text-slate-400">Send a description or try a suggestion.</p>
+    <progress id="progress" hidden max="100" value="0" class="mt-4 h-3 w-full accent-emerald-400" aria-label="Build progress"></progress>
+    <p id="layers" class="mt-2 text-xs text-slate-400"></p>
+    <p id="source" class="mt-2 text-xs text-slate-400">Famous landmarks use hand-built blueprints; other ideas are designed by open AI models.</p>
+  </section>
+  <footer class="mt-8 text-center text-xs leading-relaxed text-slate-500">Powered by open-weight models: Nemotron 3 Super · gpt-oss-20b<br><a class="underline" href="https://github.com/dimaxus3-dev/ai-minecraft-builder" target="_blank" rel="noopener">View the open-source repository</a></footer>
+</main>
+<script>document.write('<script src="' + (location.protocol === 'file:' ? 'live.js' : '/static/live.js') + '"><\/script>');</script>
+<script>
+  const el = id => document.getElementById(id);
+  let ownId = null, ownRequest = null;
+  try { ownId = Number(localStorage.getItem('minecraft-request') || localStorage.getItem('hackRid')) || null; } catch {}
+  function renderRequest(request) {
+    if (!request || request.id !== ownId) return;
+    const changed = !ownRequest || ownRequest.status !== request.status;
+    ownRequest = request;
+    el('status').textContent = '#' + request.id + ' · ' + (Live.labels[request.status] || request.status);
+    el('description').textContent = request.status === 'failed' ? request.error || 'The build failed.' : request.text;
+    el('source').textContent = Live.source(request) || 'Each idea is reviewed by a moderator before it is built.';
+    if (changed) { el('progress').hidden = request.status !== 'building'; el('progress').value = 0; el('layers').textContent = ''; }
+  }
+  Live.connect('/ws/public', data => {
+    if ('worker_online' in data) el('worker').textContent = data.worker_online ? 'Minecraft builder online' : 'Minecraft builder offline · Your idea will wait in the queue';
+    if (data.type === 'init') {
+      const request = data.requests.find(r => r.id === ownId);
+      if (request) renderRequest(request);
+      else if (ownId) { ownRequest = null; el('status').textContent = '#' + ownId + ' · Not in the recent snapshot'; el('description').textContent = 'You can send a new idea.'; el('progress').hidden = true; el('layers').textContent = ''; }
     }
-    function setBusy(on) {
-      busy = on;
-      submitButton.disabled = on;
-      promptInput.disabled = on;
-      suggestions.forEach(button => { button.disabled = on; });
-      submitButton.textContent = on ? 'Building your idea…' : 'Build another idea →';
+    if (data.request) renderRequest(data.request);
+    if (data.type === 'progress' && data.id === ownId && ownRequest?.status === 'building') {
+      const p = Live.progress(data); el('progress').hidden = false; el('progress').value = p.percent;
+      el('layers').textContent = p.done + ' / ' + p.total + ' layers';
     }
-    function sourceText(r) {
-      const p = r.program || {};
-      return (SOURCE[p.source] || '') + (p.source === 'model' && p.model ? ' · ' + p.model.split('/').pop() : '');
-    }
-
-    // Статус своего запроса. Тексты только через textContent: чужой ввод никогда не вставляется как HTML.
-    function render(r) {
-      const idea = '“' + r.text + '”';
-      switch (r.status) {
-        case 'pending':
-          setBusy(true); updateStatus('In review', 'Waiting for a moderator', idea + ' will be checked first, then built.', 10); break;
-        case 'approved':
-          setBusy(true); updateStatus('Approved', 'Approved. You are in the queue.', idea + ' is next in line.', 25); break;
-        case 'generating':
-          setBusy(true); updateStatus('Designing', 'Drawing the blueprint…', 'Finding the real building, choosing shapes and blocks.', 40); break;
-        case 'building': {
-          setBusy(true);
-          const pr = building && building.id === r.id ? building.done / building.total : 0;
-          updateStatus('Building', 'Placing the blocks…', 'Watch the big screen: ' + idea + ' is growing in Minecraft.', 45 + 50 * pr); break;
-        }
-        case 'done':
-          setBusy(false);
-          updateStatus('Complete', 'Your build is ready!', idea + ' · ' + number(r.blocks) + ' blocks. Look at the big screen!', 100);
-          sourceLine.textContent = 'Made from: ' + sourceText(r); break;
-        case 'rejected':
-          setBusy(false); updateStatus('Declined', 'The moderator passed on this idea', 'Try a different one.', 0); break;
-        case 'failed':
-          setBusy(false); updateStatus('Failed', 'We could not build this one', 'Try another idea. ' + (r.error ? '(' + r.error.slice(0, 80) + ')' : ''), 0); break;
-      }
-    }
-    const number = n => new Intl.NumberFormat('en-US').format(n || 0);
-
-    form.addEventListener('submit', async event => {
-      event.preventDefault();
-      if (busy) return;
-      const idea = promptInput.value.trim();
-      if (idea.length < 2) {
-        promptInput.setCustomValidity('Describe what you want to build first.');
-        promptInput.reportValidity(); promptInput.setCustomValidity(''); return;
-      }
-      promptError.classList.add('hidden');
-      setBusy(true);
-      let res, data = {};
-      try {
-        res = await fetch('/api/request', { method: 'POST', headers: { 'content-type': 'application/json' },
-                                            body: JSON.stringify({ text: idea }) });
-        data = await res.json().catch(() => ({}));
-      } catch (e) {
-        setBusy(false); updateStatus('Offline', 'No connection', 'Check your internet and try again.', 0); return;
-      }
-      if (!res.ok) {
-        setBusy(false);
-        const wait = ((data.detail || '').match(/\d+/) || [])[0];
-        const msg = res.status === 429 ? 'Please wait ' + (wait || 'a few') + ' seconds before sending another idea.'
-                  : res.status === 400 ? 'Please write between 2 and 300 characters.'
-                  : 'Something went wrong. Try again in a moment.';
-        updateStatus('Try again', 'We could not send your idea', msg, 0); return;
-      }
-      myId = data.id; localStorage.setItem('hackRid', String(myId));
-      sourceLine.textContent = 'Each idea is reviewed by a moderator before it is built.';
-      render(data);
-    });
-
-    // Живые обновления. Сокет рвётся (сон телефона, плохой Wi-Fi), поэтому переподключаемся бесконечно.
-    function connect() {
-      const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/public');
-      ws.onmessage = ev => {
-        const d = JSON.parse(ev.data);
-        if ('worker_online' in d) {
-          liveLine.textContent = d.worker_online ? 'Minecraft is online · every idea is reviewed, then built live'
-                                                 : 'Minecraft builder is offline right now · your idea will wait in the queue';
-        }
-        if (d.type === 'init' && myId) { const mine = (d.requests || []).find(x => x.id === myId); if (mine) render(mine); }
-        if (d.type === 'update' && d.request && d.request.id === myId) render(d.request);
-        if (d.type === 'progress' && d.id === myId) {
-          building = { id: d.id, done: d.done, total: d.total };
-          updateStatus('Building', 'Placing the blocks…', 'Watch the big screen: your idea is growing in Minecraft.', 45 + 50 * d.done / d.total);
-        }
-      };
-      ws.onclose = () => setTimeout(connect, 1500);
-      ws.onerror = () => ws.close();
-    }
-    connect();
-  </script>
-</body>
-</html>
+  }, text => { el('connection').textContent = text; });
+  function count() { el('count').textContent = el('prompt').value.length + ' / 300'; }
+  el('prompt').addEventListener('input', count);
+  document.querySelectorAll('[data-suggestion]').forEach(button => button.addEventListener('click', () => {
+    el('prompt').value = button.dataset.suggestion; count(); el('error').textContent = ''; el('prompt').focus();
+  }));
+  el('build-form').addEventListener('submit', async event => {
+    event.preventDefault(); if (el('submit').disabled) return;
+    el('submit').disabled = true; el('submit').textContent = 'Sending…'; el('error').textContent = '';
+    try {
+      const request = await Live.submit({text: el('prompt').value.trim(), author: el('author').value.trim()});
+      ownId = request.id;
+      try { localStorage.setItem('minecraft-request', String(ownId)); } catch {}
+      renderRequest(request);
+    } catch (error) { el('error').textContent = error.message; }
+    finally { el('submit').disabled = false; el('submit').textContent = 'Send my idea →'; }
+  });
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (Recognition) {
+    el('mic').hidden = false;
+    const recognition = new Recognition(); recognition.lang = 'en-US'; recognition.interimResults = false;
+    let listening = false;
+    el('mic').onclick = () => { if (listening) recognition.stop(); else { try { recognition.start(); } catch {} } };
+    recognition.onstart = () => { listening = true; el('mic').textContent = '⏹'; el('mic').setAttribute('aria-label', 'Stop dictation'); };
+    recognition.onend = () => { listening = false; el('mic').textContent = '🎤'; el('mic').setAttribute('aria-label', 'Dictate a build'); };
+    recognition.onresult = event => { el('prompt').value = event.results[0][0].transcript.slice(0, 300); count(); };
+    recognition.onerror = () => { el('error').textContent = 'Dictation is unavailable. Please type your idea.'; };
+  }
+</script></body></html>

@@ -1,138 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#020617">
-  <title>Build room · AI Minecraft Builder</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-</head>
-<body class="min-h-screen bg-slate-950 font-sans text-slate-100 antialiased">
-  <main class="mx-auto max-w-screen-2xl px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
-    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <p class="text-lg font-bold tracking-widest text-emerald-400">AI MINECRAFT BUILDER</p>
-        <h1 class="mt-1 text-3xl font-bold sm:text-4xl">The build room</h1>
-      </div>
-      <div class="flex items-center gap-6">
-        <div class="text-right">
-          <span id="live-badge" class="rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-lg font-semibold text-slate-300">Hackathon · Live</span>
-          <p class="mt-4 text-2xl font-semibold text-slate-100">Scan to add your idea</p>
-          <p id="join-url" class="text-xl text-emerald-300 break-all"></p>
-        </div>
-        <div id="qr" class="rounded-2xl bg-white p-3"></div>
-      </div>
-    </header>
-
-    <section aria-labelledby="current-heading" class="rounded-3xl border border-emerald-400/30 bg-slate-900 p-7 sm:p-10">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <h2 id="current-heading" class="text-xl font-bold uppercase tracking-widest text-emerald-400">Currently building</h2>
-        <span class="flex items-center gap-3 text-xl font-semibold"><span class="h-3 w-3 rounded-full bg-emerald-400" aria-hidden="true"></span><span id="stage">Placing blocks</span></span>
-      </div>
-      <p id="build-name" class="mt-7 break-words text-5xl font-extrabold leading-tight tracking-tight sm:text-6xl lg:text-7xl">Sky island castle</p>
-      <p id="build-description" class="mt-4 max-w-4xl text-2xl leading-relaxed text-slate-300">A floating fortress with four towers, hanging gardens, and a waterfall.</p>
-      <div class="mt-9 flex items-end justify-between gap-4">
-        <p id="progress-detail" class="text-xl text-slate-300">Bringing the blueprint to life</p>
-        <p id="percent" class="text-5xl font-bold tabular-nums text-emerald-400">64%</p>
-      </div>
-      <div id="progress" role="progressbar" aria-label="Current build progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="64" class="mt-4 h-6 overflow-hidden rounded-full bg-slate-800">
-        <div id="progress-fill" class="h-full rounded-full bg-emerald-400 transition-all duration-700 motion-reduce:transition-none" style="width:64%"></div>
-      </div>
-    </section>
-
-    <section aria-label="Room counters" class="my-6 grid gap-4 sm:grid-cols-3">
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6"><p class="text-xl text-slate-300">Builds completed</p><p id="completed-count" class="mt-2 text-5xl font-bold tabular-nums sm:text-6xl">12</p></div>
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6"><p class="text-xl text-slate-300">Blocks placed</p><p id="blocks-count" class="mt-2 text-5xl font-bold tabular-nums sm:text-6xl">48,320</p></div>
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6"><p class="text-xl text-slate-300">Ideas in queue</p><p id="queue-count" class="mt-2 text-5xl font-bold tabular-nums sm:text-6xl">3</p></div>
-    </section>
-
-    <section aria-labelledby="recent-heading" class="rounded-2xl border border-slate-800 bg-slate-900 px-7 py-6">
-      <h2 id="recent-heading" class="text-2xl font-bold">Recently completed</h2>
-      <ul id="recent-builds" class="mt-3 divide-y divide-slate-800"></ul>
-    </section>
-    <footer class="mt-5 text-lg text-slate-400"><span id="footer-line">Open-weight AI · hand-built blueprints · real map data · github.com/dimaxus3-dev/ai-minecraft-builder</span></footer>
-  </main>
-  <script>
-    // Живой экран зала: всё приходит по сокету /ws/screen. Тексты только через textContent.
-    const SOURCE = { blueprint: 'hand-built blueprint', osm: 'real map data (OpenStreetMap)', model: 'designed by AI' };
-    const number = new Intl.NumberFormat('en-US');
-    const element = id => document.getElementById(id);
-    const reqs = new Map(), prog = {};
-    let stats = { built: 0, waiting: 0, blocks: 0 }, worker = false;
-
-    element('join-url').textContent = location.host;
-    if (window.QRCode) new QRCode(element('qr'), { text: location.origin + '/', width: 150, height: 150, colorDark: '#000000', colorLight: '#ffffff' });
-
-    function sourceText(r) {
-      const p = r.program || {};
-      return (SOURCE[p.source] || '') + (p.source === 'model' && p.model ? ' · ' + p.model.split('/').pop() : '');
-    }
-    function current() {
-      const list = [...reqs.values()].sort((a, b) => a.id - b.id);
-      for (const s of ['building', 'generating', 'approved']) { const r = list.find(x => x.status === s); if (r) return r; }
-      return null;
-    }
-    function render() {
-      const c = current();
-      let pct = 0;
-      if (c) {
-        element('build-name').textContent = (c.program && c.program.name) || c.text;
-        element('build-description').textContent = '“' + c.text + '”' + (c.author ? ' · ' + c.author : '');
-        if (c.status === 'building') {
-          const p = prog[c.id]; pct = p ? Math.round(100 * p.done / p.total) : 0;
-          element('stage').textContent = pct >= 100 ? 'Finishing' : 'Placing blocks';
-          element('progress-detail').textContent = sourceText(c) || 'Bringing the blueprint to life';
-        } else if (c.status === 'generating') {
-          element('stage').textContent = 'Designing the blueprint';
-          element('progress-detail').textContent = 'Finding the real building, choosing shapes and blocks';
-        } else {
-          element('stage').textContent = 'Up next';
-          element('progress-detail').textContent = 'Approved by the moderator';
-        }
-      } else {
-        element('build-name').textContent = 'Waiting for the next idea';
-        element('build-description').textContent = 'Scan the code and describe any building in the world. A moderator approves it, then it grows here.';
-        element('stage').textContent = 'Ready';
-        element('progress-detail').textContent = 'Famous landmarks appear in seconds';
-      }
-      element('percent').textContent = pct + '%';
-      element('progress').setAttribute('aria-valuenow', pct);
-      element('progress-fill').style.width = pct + '%';
-      element('completed-count').textContent = number.format(stats.built || 0);
-      element('blocks-count').textContent = number.format(stats.blocks || 0);
-      element('queue-count').textContent = stats.waiting || 0;
-      element('live-badge').textContent = worker ? 'Hackathon · Live' : 'Builder offline';
-      const done = [...reqs.values()].filter(r => r.status === 'done').sort((a, b) => b.id - a.id).slice(0, 4);
-      element('recent-builds').replaceChildren(...done.map(item => {
-        const row = document.createElement('li');
-        row.className = 'flex flex-wrap items-center justify-between gap-2 py-4';
-        const name = document.createElement('span');
-        name.className = 'text-2xl font-semibold';
-        name.textContent = (item.program && item.program.name) || item.text;
-        const info = document.createElement('span');
-        info.className = 'text-xl text-emerald-300';
-        info.textContent = number.format(item.blocks || 0) + ' blocks' + (sourceText(item) ? ' · ' + sourceText(item) : '');
-        row.append(name, info);
-        return row;
-      }));
-    }
-    function connect() {
-      const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/screen');
-      ws.onmessage = ev => {
-        const d = JSON.parse(ev.data);
-        if (d.type === 'init') { reqs.clear(); (d.requests || []).forEach(r => reqs.set(r.id, r)); }
-        if (d.type === 'update' && d.request) reqs.set(d.request.id, d.request);
-        if (d.type === 'progress') prog[d.id] = { done: d.done, total: d.total };
-        if (d.stats) stats = d.stats;
-        if ('worker_online' in d) worker = d.worker_online;
-        render();
-      };
-      ws.onclose = () => setTimeout(connect, 1500);   // экран висит весь день: переподключаемся бесконечно
-      ws.onerror = () => ws.close();
-    }
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build room · AI Minecraft Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head><body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+<main class="mx-auto max-w-screen-2xl p-6 lg:p-10">
+  <header class="mb-6 flex flex-wrap items-center justify-between gap-3"><h1 class="text-2xl font-bold tracking-widest text-emerald-400">AI MINECRAFT BUILDER</h1><div class="text-right"><p id="connection" class="text-lg text-slate-400">Connecting…</p><p id="worker" class="text-lg text-slate-400"></p></div></header>
+  <section class="rounded-3xl border border-emerald-400/30 bg-slate-900 p-8 lg:p-10">
+    <p id="stage" class="text-2xl font-semibold text-emerald-400">Waiting for ideas</p>
+    <h2 id="name" class="mt-5 break-words text-5xl font-bold leading-tight lg:text-7xl">What should we build next?</h2>
+    <p id="model" class="mt-3 text-2xl text-slate-400"></p>
+    <div id="build-progress" hidden class="mt-6"><p id="layers" class="mb-3 text-3xl tabular-nums">Waiting for layer updates…</p><progress id="progress" max="100" value="0" class="h-7 w-full accent-emerald-400" aria-label="Current build progress"></progress></div>
+    <div id="invitation" hidden class="mt-8 flex flex-wrap items-center gap-8">
+      <div id="qr" class="rounded-xl bg-white p-4" role="img" aria-label="QR code to submit a Minecraft idea"></div>
+      <div><p class="text-4xl font-bold lg:text-5xl">Scan. Imagine. Build.</p><a id="join" class="mt-4 block break-all text-2xl text-emerald-400 underline"></a><p class="mt-4 text-xl text-slate-400">Send your idea from your phone.</p></div>
+    </div>
+  </section>
+  <section class="my-6 grid grid-cols-3 gap-4" aria-label="Build counters">
+    <div class="rounded-2xl bg-slate-900 p-5"><p class="text-xl text-slate-400">Built</p><p id="built" class="mt-2 text-5xl font-bold tabular-nums lg:text-6xl">0</p></div>
+    <div class="rounded-2xl bg-slate-900 p-5"><p class="text-xl text-slate-400">In queue</p><p id="waiting" class="mt-2 text-5xl font-bold tabular-nums lg:text-6xl">0</p></div>
+    <div class="rounded-2xl bg-slate-900 p-5"><p class="text-xl text-slate-400">Blocks</p><p id="blocks" class="mt-2 break-all text-5xl font-bold tabular-nums lg:text-6xl">0</p></div>
+  </section>
+  <section class="rounded-2xl bg-slate-900 p-6"><h2 class="text-2xl font-bold">Latest builds</h2><ul id="recent" class="mt-3 divide-y divide-slate-800"></ul></section>
+  <footer class="mt-6 text-sm text-slate-500">Powered by open-weight models: Nemotron 3 Super · gpt-oss-20b · <a class="underline" href="https://github.com/dimaxus3-dev/ai-minecraft-builder" target="_blank" rel="noopener">Open-source repository</a></footer>
+</main>
+<script>document.write('<script src="' + (location.protocol === 'file:' ? 'live.js' : '/static/live.js') + '"><\/script>');</script>
+<script>
+  const el = id => document.getElementById(id), requests = new Map(), number = new Intl.NumberFormat('en-US');
+  let stats = {}, activeId = null, currentProgress = null, hasSnapshot = false;
+  const joinUrl = new URL('/', location.href).href;
+  el('join').href = joinUrl; el('join').textContent = location.host;
+  if (window.QRCode) new QRCode(el('qr'), {text: joinUrl, width: 280, height: 280, correctLevel: QRCode.CorrectLevel.M});
+  else el('qr').textContent = 'Open the address on your phone';
+  function render() {
+    for (const key of ['built', 'waiting', 'blocks']) el(key).textContent = number.format(stats[key] || 0);
+    const all = [...requests.values()];
+    const active = all.filter(r => ['building', 'generating'].includes(r.status)).sort((a,b) => (a.status === 'building' ? 0 : 1) - (b.status === 'building' ? 0 : 1) || a.id-b.id)[0];
+    if (activeId !== (active?.id || null)) { activeId = active?.id || null; currentProgress = null; }
+    el('name').textContent = active ? active.text : stats.waiting ? 'Your ideas are in the queue' : 'What should we build next?';
+    el('stage').textContent = active ? Live.labels[active.status] : stats.waiting ? 'Waiting to start' : 'Waiting for ideas';
+    el('model').textContent = active ? Live.source(active) : '';
+    el('build-progress').hidden = !active || active.status !== 'building';
+    el('progress').value = currentProgress?.percent || 0;
+    el('layers').textContent = currentProgress ? currentProgress.done + ' / ' + currentProgress.total + ' layers · ' + currentProgress.percent + '%' : 'Waiting for layer updates…';
+    el('invitation').hidden = !hasSnapshot || Boolean(active) || Boolean(stats.waiting);
+    const recent = all.filter(r => r.status === 'done').sort((a,b) => String(b.updated_at).localeCompare(String(a.updated_at))).slice(0, 4);
+    el('recent').replaceChildren(...recent.map(request => {
+      const row = document.createElement('li'); row.className = 'flex flex-wrap items-center justify-between gap-4 py-4';
+      const name = document.createElement('span'); name.className = 'break-words text-2xl font-semibold'; name.textContent = request.text;
+      const author = document.createElement('span'); author.className = 'text-xl text-slate-400'; author.textContent = (request.author ? request.author + ' · ' : '') + number.format(request.blocks || 0) + ' blocks' + (Live.source(request) ? ' · ' + Live.source(request) : '');
+      row.append(name, author); return row;
+    }));
+    if (!recent.length) { const row = document.createElement('li'); row.className = 'py-4 text-xl text-slate-400'; row.textContent = 'The first build could be your idea.'; el('recent').append(row); }
+  }
+  Live.connect('/ws/screen', data => {
+    if ('worker_online' in data) el('worker').textContent = data.worker_online ? 'Minecraft builder online' : 'Minecraft builder offline';
+    if (data.type === 'init') { requests.clear(); data.requests.forEach(r => requests.set(r.id, r)); currentProgress = null; hasSnapshot = true; }
+    if (data.request) requests.set(data.request.id, data.request);
+    if (data.stats) stats = data.stats;
+    if (data.type === 'progress' && data.id === activeId) currentProgress = Live.progress(data);
     render();
-    connect();
-  </script>
-</body>
-</html>
+  }, text => { el('connection').textContent = text; });
+</script></body></html>
