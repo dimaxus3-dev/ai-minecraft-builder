@@ -184,6 +184,8 @@ def _load() -> None:
     ):
         register(Entry(id_, en, ru, al, fn, about, tunable=True))
 
+    _load_families()
+
     for id_, en, ru, al, fn, about in (
         ("castle", "Castle", "Замок", [("замок",), ("castle",), ("крепост",), ("fortress",), ("форт",), ("fort",),
           ("цитадел",), ("citadel",), ("кремл",), ("kremlin",), ("бастион",), ("keep",)], A.castle,
@@ -208,6 +210,343 @@ def _load() -> None:
         register(Entry(id_, en, ru, al, fn, about, generic=True, tunable=False))
 
 
+def _load_families() -> None:
+    """Семейства: один генератор, десятки узнаваемых силуэтов.
+
+    Небоскрёбы, античные храмы, купольные здания и ступенчатые пирамиды
+    отличаются пропорциями, а не принципом, поэтому каждое здание здесь —
+    это набор чисел, а не отдельный файл. Все принимают цвет и размер."""
+    from functools import partial
+
+    from . import classic as K
+    from . import small as M
+    from . import towers as W
+
+    def add(id_, en, ru, aliases, fn, about, **kw):
+        register(Entry(id_, en, ru, [tuple(a) for a in aliases],
+                       partial(fn, **kw) if kw else fn, about, tunable=True))
+
+    # --- небоскрёбы --------------------------------------------------------
+    T = W.tower
+    add("salesforce_tower", "Salesforce Tower", "Башня Salesforce",
+        [("salesforce",), ("сейлсфорс",), ("сейлфорс",), ("сейлсфорса",)], T,
+        "San Francisco: tapering round glass obelisk with a glowing lattice crown",
+        height=112, base=9, taper=0.58, shape="round", crown="lattice", bands=4,
+        main="white_concrete", accent="light_blue_stained_glass")
+    add("empire_state_building", "Empire State Building", "Эмпайр-стейт-билдинг",
+        [("empire", "state"), ("эмпайр",)], T,
+        "New York: limestone setbacks, pyramid crown, tall mooring mast",
+        height=104, base=13, taper=0.5, setbacks=4, crown="pyramid", spire=16,
+        main="light_gray_concrete", accent="gray_concrete")
+    add("chrysler_building", "Chrysler Building", "Крайслер-билдинг",
+        [("chrysler",), ("крайслер",)], T,
+        "New York: art deco steel crown of stacked arches and a needle spire",
+        height=96, base=11, taper=0.45, setbacks=3, crown="arch", spire=18,
+        main="light_gray_concrete", accent="iron_block")
+    add("one_world_trade", "One World Trade Center", "Башня Свободы",
+        [("world", "trade"), ("freedom", "tower"), ("башня", "свобод"), ("wtc",)], T,
+        "New York: square base turning to octagon, mirrored glass, long spire",
+        height=110, base=11, taper=0.42, shape="octagon", crown="flat", spire=22,
+        main="light_blue_stained_glass", accent="white_concrete")
+    add("flatiron_building", "Flatiron Building", "Утюг",
+        [("flatiron",), ("флэтайрон",), ("утюг",)], T,
+        "New York: triangular wedge, no taper, cornice on top",
+        height=52, base=12, taper=0.08, shape="triangle", crown="flat",
+        main="brown_terracotta", accent="smooth_sandstone")
+    add("willis_tower", "Willis Tower", "Уиллис-тауэр",
+        [("willis",), ("sears",), ("уиллис",), ("сирс",)], T,
+        "Chicago: bundled black tubes stepping back, two antennas",
+        height=104, base=12, taper=0.3, setbacks=4, crown="flat", spire=14,
+        main="black_concrete", accent="gray_concrete")
+    add("space_needle", "Space Needle", "Спейс-Нидл",
+        [("space", "needle"), ("спейс", "нидл")], T,
+        "Seattle: slim tripod shaft with a flying-saucer observation deck",
+        height=72, base=5, taper=0.3, shape="round", crown="saucer", spire=14,
+        main="white_concrete", accent="orange_concrete")
+    add("burj_khalifa", "Burj Khalifa", "Бурдж-Халифа",
+        [("burj", "khalifa"), ("бурдж", "халиф"), ("халифа",)], T,
+        "Dubai: spiralling setbacks narrowing to the world's tallest spire",
+        height=130, base=12, taper=0.72, setbacks=7, crown="flat", spire=26,
+        main="light_gray_concrete", accent="light_blue_stained_glass")
+    add("shanghai_tower", "Shanghai Tower", "Шанхайская башня",
+        [("shanghai",), ("шанхай",)], T,
+        "Shanghai: round glass shaft twisted through 120 degrees",
+        height=118, base=11, taper=0.42, shape="round", twist=120, crown="flat",
+        main="light_blue_stained_glass", accent="white_concrete")
+    add("taipei_101", "Taipei 101", "Тайбэй 101",
+        [("taipei",), ("тайбэй",), ("тайпей",), ("101",)], T,
+        "Taipei: eight stacked pagoda sections flaring outward, pinnacle",
+        height=100, base=10, taper=-0.08, setbacks=8, crown="pyramid", spire=20,
+        main="cyan_concrete", accent="light_blue_stained_glass")
+    add("petronas_towers", "Petronas Towers", "Башни Петронас",
+        [("petronas",), ("петронас",)], T,
+        "Kuala Lumpur: twin octagonal towers joined by a skybridge, ringed crowns",
+        height=94, base=8, taper=0.38, shape="octagon", crown="pyramid", spire=14, twin=1,
+        main="light_gray_concrete", accent="light_blue_stained_glass")
+    add("the_shard", "The Shard", "Осколок",
+        [("shard",), ("шард",), ("осколок",)], T,
+        "London: splintered glass pyramid of sloping facets, open top",
+        height=100, base=12, taper=0.8, shape="triangle", crown="flat", spire=10,
+        main="light_blue_stained_glass", accent="white_concrete")
+    add("gherkin", "30 St Mary Axe", "Корнишон",
+        [("gherkin",), ("корнишон",), ("огурец",), ("mary", "axe")], T,
+        "London: bulging glass barrel with a diamond grid and rounded top",
+        height=68, base=9, taper=0.55, shape="round", barrel=0.5, crown="dome", bands=8,
+        main="light_blue_stained_glass", accent="green_concrete")
+    add("lotte_world_tower", "Lotte World Tower", "Лотте-Ворлд-Тауэр",
+        [("lotte",), ("лотте",)], T,
+        "Seoul: smooth tapering cone split by a vertical seam, lit spire",
+        height=112, base=10, taper=0.62, shape="round", crown="flat", spire=20,
+        main="white_concrete", accent="light_blue_stained_glass")
+    add("cn_tower", "CN Tower", "Си-Эн Тауэр",
+        [("cn", "tower"), ("си", "эн"), ("торонто",), ("toronto",)], T,
+        "Toronto: slender concrete shaft, round observation pod, long mast",
+        height=108, base=5, taper=0.45, shape="round", pod=0.66, crown="flat", spire=26,
+        main="light_gray_concrete", accent="white_concrete")
+    add("ostankino_tower", "Ostankino Tower", "Останкинская башня",
+        [("останкин",), ("ostankino",)], T,
+        "Moscow: tapering concrete needle with a ringed restaurant pod",
+        height=116, base=6, taper=0.6, shape="round", pod=0.55, crown="flat", spire=24,
+        main="white_concrete", accent="red_concrete")
+    add("tokyo_tower", "Tokyo Tower", "Токийская башня",
+        [("tokyo", "tower"), ("токийская", "башня"), ("токио",)], T,
+        "Tokyo: red and white lattice tower with two decks and a mast",
+        height=86, base=12, taper=0.72, crown="lattice", spire=18, bands=9,
+        main="red_concrete", accent="white_concrete")
+    add("lakhta_center", "Lakhta Center", "Лахта-центр",
+        [("лахта",), ("lakhta",)], T,
+        "Saint Petersburg: twisted glass flame tapering to a point",
+        height=120, base=10, taper=0.78, shape="pentagon", twist=90, crown="flat", spire=16,
+        main="light_blue_stained_glass", accent="white_concrete")
+    add("federation_tower", "Federation Tower", "Башня Федерация",
+        [("федерация",), ("federation",), ("москва", "сити"), ("moscow", "city")], T,
+        "Moscow City: sheer glass slab tapering to a flat top",
+        height=106, base=10, taper=0.55, shape="triangle", crown="flat", spire=12,
+        main="light_blue_stained_glass", accent="gray_concrete")
+    add("stalin_highrise", "Seven Sisters tower", "Сталинская высотка",
+        [("высотка",), ("сталинск",), ("мгу",), ("seven", "sisters"), ("гостиница", "украина")], T,
+        "Moscow: wedding-cake setbacks, tiered crown and a gilded spire",
+        height=98, base=14, taper=0.62, setbacks=6, crown="pyramid", spire=22,
+        main="smooth_sandstone", accent="light_gray_concrete")
+    add("kyiv_tv_tower", "Kyiv TV Tower", "Киевская телебашня",
+        [("телебашн",), ("tv", "tower"), ("телевышк",)], T,
+        "Kyiv: free-standing steel lattice needle, no guy wires",
+        height=112, base=11, taper=0.8, crown="lattice", spire=20,
+        main="iron_block", accent="gray_concrete")
+    add("hotel_tower", "Grand hotel tower", "Башня-отель",
+        [("небоскрёб", "отель"), ("башня", "отел"), ("grand", "hotel"), ("hotel", "tower")], T,
+        "slab hotel tower with a rooftop terrace and glass bands",
+        height=74, base=11, taper=0.2, crown="flat", bands=6,
+        main="smooth_sandstone", accent="light_blue_stained_glass")
+    add("office_tower", "Office tower", "Офисная башня",
+        [("офисн", "башн"), ("office", "tower"), ("бизнес", "центр")], T,
+        "plain modern office tower: glass curtain wall, flat roof",
+        height=70, base=10, taper=0.15, crown="flat", bands=5,
+        main="gray_concrete", accent="light_blue_stained_glass")
+    add("twin_towers", "Twin towers", "Башни-близнецы",
+        [("близнец",), ("twin", "towers"), ("twins",)], T,
+        "two identical square towers side by side with a skybridge",
+        height=96, base=9, taper=0.1, crown="flat", spire=8, twin=1,
+        main="light_gray_concrete", accent="light_blue_stained_glass")
+    add("pencil_tower", "Pencil tower", "Башня-карандаш",
+        [("карандаш",), ("pencil",), ("supertall",), ("суперстройн",)], T,
+        "ultra-slim residential needle, very small footprint",
+        height=120, base=5, taper=0.25, crown="flat", spire=12,
+        main="smooth_quartz", accent="black_concrete")
+    add("brutalist_tower", "Brutalist tower", "Брутализм",
+        [("брутал",), ("brutalist",), ("панельк",), ("хрущёвк",), ("хрущевк",)], T,
+        "raw concrete slab block with deep window bands",
+        height=56, base=13, taper=0.05, crown="flat", bands=9,
+        main="light_gray_concrete", accent="gray_concrete")
+    add("pagoda_tower", "Pagoda tower", "Башня-пагода",
+        [("пагод", "башн"), ("pagoda", "tower")], T,
+        "tiered oriental tower with flaring roofs at every level",
+        height=78, base=11, taper=0.5, setbacks=7, crown="pyramid", spire=10,
+        main="red_terracotta", accent="gold_block")
+    add("observation_tower", "Observation tower", "Смотровая башня",
+        [("смотров", "башн"), ("observation",), ("обзорн", "башн")], T,
+        "slim shaft with a wide glazed observation deck near the top",
+        height=80, base=6, taper=0.35, shape="round", pod=0.72, crown="dome",
+        main="white_concrete", accent="light_blue_stained_glass")
+
+    # --- античность и колоннады -------------------------------------------
+    P = K.temple
+    add("parthenon", "Parthenon", "Парфенон",
+        [("парфенон",), ("parthenon",), ("акропол",), ("acropolis",)], P,
+        "Athens: marble peripteral temple, fluted columns, pediments",
+        width=42, depth=24, columns=10, col_h=17, steps=4, statue=1)
+    add("greek_temple", "Greek temple", "Греческий храм",
+        [("греческ", "храм"), ("greek", "temple"), ("антич", "храм")], P,
+        "classical Greek temple with a colonnade and gabled pediment",
+        width=32, depth=20, columns=8, col_h=14, steps=3)
+    add("roman_temple", "Roman temple", "Римский храм",
+        [("римск", "храм"), ("roman", "temple"), ("форум",), ("forum",)], P,
+        "Roman temple on a high podium, deep portico",
+        width=28, depth=22, columns=6, col_h=15, steps=6,
+        main="smooth_sandstone", accent="cut_sandstone")
+    add("lincoln_memorial", "Lincoln Memorial", "Мемориал Линкольна",
+        [("lincoln",), ("линкольн",)], P,
+        "Washington: broad colonnade on a tall stepped base, flat roof",
+        width=46, depth=28, columns=12, col_h=16, steps=7, roof_style="flat", statue=1)
+    add("supreme_court", "Courthouse", "Здание суда",
+        [("суд",), ("courthouse",), ("supreme", "court"), ("судебн",)], P,
+        "neoclassical courthouse: columned portico, wings, pediment",
+        width=34, depth=22, columns=8, col_h=15, steps=5, wings=1)
+    add("museum", "Museum", "Музей",
+        [("музей",), ("museum",), ("галере",), ("gallery",)], P,
+        "museum: colonnade, side wings, grand steps",
+        width=38, depth=24, columns=10, col_h=15, steps=5, wings=1,
+        main="smooth_sandstone", accent="quartz_block")
+    add("library", "Library", "Библиотека",
+        [("библиотек",), ("library",)], P,
+        "public library: columned front, long reading wings",
+        width=34, depth=26, columns=8, col_h=14, steps=4, wings=1,
+        main="quartz_block", accent="smooth_stone")
+    add("opera_house", "Opera house", "Оперный театр",
+        [("опер",), ("opera",), ("театр",), ("theatre",), ("theater",)], P,
+        "opera house: portico with columns, hip roof, side wings",
+        width=38, depth=26, columns=8, col_h=16, steps=5, wings=1, roof_style="hip",
+        main="smooth_sandstone", accent="green_concrete")
+    add("city_hall", "City hall", "Ратуша",
+        [("ратуш",), ("city", "hall"), ("мэри",), ("town", "hall")], P,
+        "city hall: colonnaded front, hip roof, clock over the entrance",
+        width=32, depth=22, columns=8, col_h=14, steps=4, roof_style="hip", wings=1)
+    add("bank", "Bank", "Банк",
+        [("банк",), ("bank",), ("биржа",), ("exchange",)], P,
+        "bank: heavy columns, stone facade, flat roof",
+        width=30, depth=20, columns=8, col_h=15, steps=5, roof_style="flat",
+        main="smooth_stone", accent="polished_andesite")
+
+    # --- купола -------------------------------------------------------------
+    D = K.domed
+    add("us_capitol", "United States Capitol", "Капитолий",
+        [("капитоли",), ("capitol",)], D,
+        "Washington: white dome on a colonnaded drum, two long wings, portico",
+        body=34, body_h=18, drum=14, drum_h=13, dome_r=14, wings=1, portico=1)
+    add("st_peters", "St Peter's Basilica", "Собор Святого Петра",
+        [("святого", "петра"), ("peter", "basilica"), ("ватикан",), ("vatican",)], D,
+        "Rome: vast basilica, ribbed dome on a colonnaded drum, lantern",
+        body=40, body_h=22, drum=16, drum_h=16, dome_r=17, wings=1,
+        main="smooth_sandstone", accent="quartz_block")
+    add("pantheon", "Pantheon", "Пантеон",
+        [("пантеон",), ("pantheon",)], D,
+        "Rome: cylindrical rotunda under a shallow dome with a portico",
+        body=30, body_h=14, drum=15, drum_h=4, dome_r=15, wings=0, lantern=0,
+        main="smooth_sandstone", accent="red_terracotta")
+    add("st_pauls", "St Paul's Cathedral", "Собор Святого Павла",
+        [("святого", "павла"), ("paul", "cathedral"), ("st", "pauls")], D,
+        "London: baroque dome with a colonnade and golden lantern",
+        body=34, body_h=20, drum=13, drum_h=15, dome_r=14, wings=1,
+        main="quartz_block", accent="light_gray_concrete")
+    add("isaac_cathedral", "Saint Isaac's Cathedral", "Исаакиевский собор",
+        [("исаакиев",), ("isaac",)], D,
+        "Saint Petersburg: granite colonnades and a gilded dome",
+        body=32, body_h=18, drum=12, drum_h=13, dome_r=13, wings=0, portico=1,
+        dome_block="gold_block", main="light_gray_concrete", accent="polished_granite")
+    add("reichstag", "Reichstag", "Рейхстаг",
+        [("рейхстаг",), ("reichstag",), ("бундестаг",)], D,
+        "Berlin: stone block with corner towers and a glass dome",
+        body=36, body_h=18, drum=11, drum_h=6, dome_r=11, wings=1,
+        dome_block="light_blue_stained_glass", main="smooth_stone", accent="light_gray_concrete")
+    add("blue_mosque", "Blue Mosque", "Голубая мечеть",
+        [("голубая", "мечет"), ("blue", "mosque"), ("айя",), ("hagia",), ("софия", "стамбул")], D,
+        "Istanbul: cascading domes and slender minarets",
+        body=32, body_h=16, drum=14, drum_h=8, dome_r=15, wings=0, minarets=1,
+        main="light_gray_concrete", accent="cyan_concrete", dome_block="cyan_concrete")
+    add("jefferson_memorial", "Jefferson Memorial", "Мемориал Джефферсона",
+        [("джефферсон",), ("jefferson",), ("ротонд",), ("rotunda",)], D,
+        "Washington: open rotunda ringed by columns under a white dome",
+        body=24, body_h=12, drum=13, drum_h=5, dome_r=13, wings=0, lantern=0, portico=1,
+        main="quartz_block", accent="smooth_quartz")
+    add("planetarium", "Planetarium", "Планетарий",
+        [("планетари",), ("planetarium",), ("обсерватори",), ("observatory",)], D,
+        "planetarium: low drum under a smooth metal dome",
+        body=24, body_h=10, drum=14, drum_h=4, dome_r=14, wings=0, lantern=0,
+        colonnade=0, main="light_gray_concrete", accent="iron_block",
+        dome_block="light_gray_concrete")
+
+    # --- ступенчатые пирамиды ----------------------------------------------
+    Y = K.step_pyramid
+    add("chichen_itza", "Chichen Itza", "Чичен-Ица",
+        [("чичен",), ("chichen",), ("кукулькан",), ("kukulcan",), ("майя",), ("maya",)], Y,
+        "Mexico: nine-tier Mayan pyramid, stairs on all four sides, temple on top",
+        base=46, tiers=9, tier_h=4, stairs=4)
+    add("ziggurat", "Ziggurat", "Зиккурат",
+        [("зиккурат",), ("ziggurat",), ("вавилон",), ("babylon",), ("ур",)], Y,
+        "Mesopotamia: three massive mud-brick terraces with a front ramp",
+        base=52, tiers=3, tier_h=9, stairs=1,
+        main="packed_mud", accent="mud_bricks")
+    add("teotihuacan", "Pyramid of the Sun", "Пирамида Солнца",
+        [("теотиуакан",), ("teotihuacan",), ("солнца", "пирамид"), ("sun", "pyramid")], Y,
+        "Mexico: broad five-tier pyramid with one long frontal stairway",
+        base=60, tiers=5, tier_h=6, stairs=1, temple_top=1,
+        main="cobblestone", accent="andesite")
+    add("borobudur", "Borobudur", "Боробудур",
+        [("боробудур",), ("borobudur",), ("ступа",), ("stupa",)], Y,
+        "Java: round terraces stacked into a bell-shaped stupa mountain",
+        base=50, tiers=7, tier_h=4, stairs=4, round_corners=1,
+        main="andesite", accent="polished_andesite")
+    add("tower_of_babel", "Tower of Babel", "Вавилонская башня",
+        [("вавилонск", "башн"), ("babel",), ("спиральн", "башн")], Y,
+        "spiral ziggurat climbing in many shrinking tiers",
+        base=56, tiers=11, tier_h=4, stairs=0, spiral=1,
+        main="smooth_sandstone", accent="cut_sandstone")
+
+    # --- малые формы --------------------------------------------------------
+    for id_, en, ru, aliases, fn, about in (
+        ("well", "Well", "Колодец",
+         [("колодец",), ("колодца",), ("well",)], M.well,
+         "stone well with a gabled shelter, bucket on a chain"),
+        ("tent", "Circus tent", "Шатёр",
+         [("шатер",), ("шатёр",), ("палатк",), ("tent",), ("цирк",), ("circus",), ("marquee",)], M.tent,
+         "striped big-top tent with guy ropes, flag and a campfire"),
+        ("barn", "Barn", "Амбар",
+         [("амбар",), ("barn",), ("сара",), ("хлев",), ("granary",), ("житниц",)], M.barn,
+         "red barn with a gambrel roof, big doors, silo, fence and fields"),
+        ("water_tower", "Water tower", "Водонапорная башня",
+         [("водонапорн",), ("water", "tower"), ("водокачк",)], M.water_tower,
+         "water tank on four braced legs with a conical roof and ladder"),
+        ("crane", "Tower crane", "Башенный кран",
+         [("кран",), ("crane",), ("стройк",), ("construction",)], M.crane,
+         "tower crane: lattice mast, jib with counterweight, hook on a chain"),
+        ("radio_tower", "Radio mast", "Радиовышка",
+         [("радиовышк",), ("радиомачт",), ("radio", "tower"), ("antenna",), ("антенн",),
+          ("вышка",), ("мачта",), ("mast",)], M.radio_tower,
+         "red and white lattice mast with guy wires, dishes and a beacon"),
+        ("gazebo", "Gazebo", "Беседка",
+         [("беседк",), ("gazebo",), ("pavilion",), ("павильон",), ("ротонда", "парк")], M.gazebo,
+         "octagonal garden gazebo: columns, benches, conical roof, lantern"),
+        ("greenhouse_build", "Greenhouse", "Теплица",
+         [("теплиц",), ("оранжере",), ("greenhouse",), ("conservatory",)], M.greenhouse,
+         "glass greenhouse with white frames, raised beds and a water barrel"),
+        ("snowman", "Snowman", "Снеговик",
+         [("снеговик",), ("снежная", "баба"), ("snowman",), ("olaf",)], M.snowman,
+         "three-ball snowman with a bucket hat, carrot nose, scarf and stick arms"),
+        ("hot_air_balloon", "Hot air balloon", "Воздушный шар",
+         [("воздушн", "шар"), ("balloon",), ("аэростат",), ("montgolfier",)], M.hot_air_balloon,
+         "striped balloon envelope, ropes and a wicker basket on the ground"),
+        ("treehouse", "Treehouse", "Домик на дереве",
+         [("домик", "дерев"), ("treehouse",), ("на", "дереве")], M.treehouse,
+         "cabin on a platform in a big tree, railings, ladder, leafy crown"),
+        ("chess_rook", "Chess rook", "Шахматная ладья",
+         [("шахмат",), ("ладья",), ("chess",), ("rook",), ("пешк",)], M.chess_rook,
+         "giant chess rook on a chequered board: turned profile, battlements"),
+        ("maze", "Hedge maze", "Лабиринт",
+         [("лабиринт",), ("maze",), ("labyrinth",)], M.maze,
+         "hedge maze on a grid with an entrance, an exit and a central fountain"),
+        ("pier", "Pier", "Причал",
+         [("причал",), ("пирс",), ("pier",), ("dock",), ("пристан",), ("harbour",), ("harbor",)], M.pier,
+         "wooden pier on piles with bollards, a lantern and a moored boat"),
+        ("pool", "Swimming pool", "Бассейн",
+         [("бассейн",), ("pool",), ("аквапарк",), ("waterpark",)], M.pool,
+         "swimming pool with lane lines, diving tower, sun loungers and umbrellas"),
+        ("farm", "Farm", "Ферма",
+         [("ферма",), ("farm",), ("огород",), ("поле",), ("field",), ("пашн",)], M.farm,
+         "farm: irrigated crop rows, shed, hay bales, scarecrow and a fence"),
+    ):
+        register(Entry(id_, en, ru, [tuple(a) for a in aliases], fn, about, tunable=True))
+
+
 def _text(s: str) -> str:
     return re.sub(r"[^\w\s]", " ", s.lower().replace("ё", "е"))
 
@@ -223,11 +562,20 @@ def match(text: str) -> str | None:
     """id чертежа, если запрос про известное здание или предмет, иначе None."""
     t = _text(text)
     words = len(t.split())
+    best, best_score = None, 0
     for entry in REGISTRY.values():
         if entry.generic and words > entry.max_words:
             continue          # «красный замок с драконом» — пожелания, пусть думает модель
-        if any(all(_has_stem(t, part) for part in alias) for alias in entry.aliases):
-            return entry.id
+        for alias in entry.aliases:
+            if all(_has_stem(t, part) for part in alias):
+                # Побеждает самая точная ловушка, а не первая по порядку: иначе
+                # «planetarium» уходило в самолёт («plane» стоит в начале слова),
+                # а «пирамида Солнца» — в пирамиду Хеопса.
+                score = sum(len(part) for part in alias) + 10 * (len(alias) - 1)
+                if score > best_score:
+                    best, best_score = entry.id, score
+    if best:
+        return best
     # Мягкий проход — только для коротких запросов-существительных («Supercar»,
     # «Viking mansion»). Длинное описание («розовый замок с драконом на крыше») —
     # это задача для модели, в ней весь смысл открытого ИИ в проекте.

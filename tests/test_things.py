@@ -70,7 +70,8 @@ class SoftMatchTests(unittest.TestCase):
     def test_корень_внутри_слова_находит_ближайшее(self):
         self.assertEqual(blueprints.match("Supercar"), "supercar")
         self.assertEqual(blueprints.match("Viking mansion"), "mansion")
-        self.assertEqual(blueprints.match("greenhouse"), "house")
+        self.assertEqual(blueprints.match("greenhouse"), "greenhouse_build")
+        self.assertEqual(blueprints.match("clubhouse"), "house")
         self.assertEqual(blueprints.match("skyscrapers"), "skyscraper")
 
     def test_короткий_корень_в_мягкий_проход_не_идёт(self):
