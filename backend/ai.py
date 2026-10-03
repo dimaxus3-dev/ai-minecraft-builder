@@ -81,6 +81,12 @@ class AuthError(LLMError):
 # заново ждал минуту, чтобы узнать то же самое.
 _COOLDOWN: dict[str, float] = {}
 
+# Сколько запросов к API держим в воздухе одновременно. Замер показал: семь
+# параллельных запросов на одном ключе — и половина уходит в таймаут, хотя
+# каждый по отдельности отвечает за секунду. Гонка из четырёх моделей на трёх
+# предгенерациях давала до двенадцати разом, то есть мы глушили сами себя.
+_INFLIGHT = threading.BoundedSemaphore(max(1, int(os.getenv("LLM_MAX_INFLIGHT", 3))))
+
 
 def _cooldown_left(model: str) -> float:
     return max(0.0, _COOLDOWN.get(model, 0.0) - time.time())
@@ -272,6 +278,13 @@ def _chat(messages: list[dict], model: str,
     base_url, api_key, send_name, headers = endpoint_for(model)
     if not api_key:
         raise AuthError(f"{model}: нет ключа для провайдера")
+    with _INFLIGHT:
+        return _post(base_url, headers, send_name, model, messages,
+                     temperature, max_tokens, timeout)
+
+
+def _post(base_url, headers, send_name, model, messages,
+          temperature, max_tokens, timeout) -> str:
     response = requests.post(
         f"{base_url}/chat/completions",
         headers=headers,
